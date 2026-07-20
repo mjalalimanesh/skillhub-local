@@ -1,0 +1,19 @@
+{
+  "name": "skillhub-local",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local web app for managing AI agent skills across your PC",
+  "type": "module",
+  "scripts": {
+    "dev:frontend": "cd packages/frontend && npm run dev",
+    "dev:backend": "cd packages/backend && npm run dev",
+    "dev": "concurrently -n frontend,backend -c cyan,green \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "build:frontend": "cd packages/frontend && npm run build",
+    "build:backend": "cd packages/backend && npm run build",
+    "build": "npm run build:frontend && npm run build:backend",
+    "start": "cd packages/backend && npm run start"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
