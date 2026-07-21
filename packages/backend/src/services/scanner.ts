@@ -2,6 +2,7 @@ import { readdir, stat, readFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import matter from "gray-matter";
+import { detectInstalledPlugins } from "./installed-plugins.js";
 
 interface AgentDef {
   id: string;
@@ -138,6 +139,8 @@ export interface InstalledSkill {
   hasScripts: boolean;
   hasAssets: boolean;
   hasReferences: boolean;
+  pluginId?: string;
+  pluginName?: string;
 }
 
 export async function detectAgents(): Promise<DetectedAgent[]> {
@@ -222,6 +225,28 @@ export async function scanAllSkills(agentId?: string): Promise<InstalledSkill[]>
           });
         }
       }
+    }
+  }
+
+  // Merge plugin skills
+  const plugins = await detectInstalledPlugins();
+  for (const plugin of plugins) {
+    if (agentId && plugin.agentId !== agentId) continue;
+    for (const skill of plugin.skills) {
+      allSkills.push({
+        id: `${plugin.agentId}::${plugin.name}:${skill.name}`,
+        name: `${plugin.name}:${skill.name}`,
+        description: skill.description,
+        agentId: plugin.agentId,
+        scope: "global",
+        path: skill.path,
+        frontmatter: skill.frontmatter,
+        hasScripts: false,
+        hasAssets: false,
+        hasReferences: false,
+        pluginId: plugin.id,
+        pluginName: plugin.name,
+      });
     }
   }
 

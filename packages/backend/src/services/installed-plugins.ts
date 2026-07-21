@@ -3,6 +3,13 @@ import { join } from "node:path";
 import { homedir } from "node:os";
 import matter from "gray-matter";
 
+export interface PluginSkill {
+  name: string;
+  path: string;
+  description: string;
+  frontmatter: Record<string, unknown>;
+}
+
 export interface InstalledPlugin {
   id: string;
   name: string;
@@ -10,7 +17,7 @@ export interface InstalledPlugin {
   agentName: string;
   path: string;
   skillCount: number;
-  skills: string[];
+  skills: PluginSkill[];
   version?: string;
   description?: string;
 }
@@ -68,8 +75,8 @@ function expandHome(p: string): string {
   return p;
 }
 
-async function findSkillsInDir(dir: string, depth = 0): Promise<string[]> {
-  const skills: string[] = [];
+async function findSkillsInDir(dir: string, depth = 0): Promise<PluginSkill[]> {
+  const skills: PluginSkill[] = [];
   if (!(await pathExists(dir)) || depth > 4) return skills;
 
   try {
@@ -82,7 +89,20 @@ async function findSkillsInDir(dir: string, depth = 0): Promise<string[]> {
       const skillMdPath = join(childDir, "SKILL.md");
 
       if (await pathExists(skillMdPath)) {
-        skills.push(entry.name);
+        try {
+          const raw = await readFile(skillMdPath, "utf-8");
+          const { data: frontmatter, content } = matter(raw);
+          const description = (frontmatter.description as string) || content.split("\n").slice(0, 2).join(" ").trim();
+
+          skills.push({
+            name: entry.name,
+            path: childDir,
+            description,
+            frontmatter,
+          });
+        } catch {
+          // skip malformed skills
+        }
       } else {
         const nested = await findSkillsInDir(childDir, depth + 1);
         skills.push(...nested);
@@ -115,7 +135,7 @@ async function detectPluginsForAgent(config: PluginDirConfig): Promise<Installed
           const versionPath = join(pluginDir, versionDir.name);
           const skillsDir = join(versionPath, "skills");
 
-          let skills: string[] = [];
+          let skills: PluginSkill[] = [];
           if (await pathExists(skillsDir)) {
             skills = await findSkillsInDir(skillsDir);
           }

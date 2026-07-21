@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyToAgentsDialog } from "./CopyToAgentsDialog";
-import { Package, Trash2, RefreshCw, Copy } from "lucide-react";
+import { Package, Trash2, RefreshCw, Copy, Puzzle } from "lucide-react";
 import { useToastStore } from "@/components/ui/toaster";
 
 export default function SkillsPage() {
@@ -134,10 +134,21 @@ export default function SkillsPage() {
                 to={`/skills/${skill.name}`}
                 className="flex items-center gap-3 flex-1 min-w-0"
               >
-                <Package size={16} className="text-accent shrink-0" />
+                {skill.pluginId ? (
+                  <Puzzle size={16} className="text-purple-500 shrink-0" />
+                ) : (
+                  <Package size={16} className="text-accent shrink-0" />
+                )}
                 <div className="min-w-0">
                   <div className="text-sm font-medium text-ink group-hover:text-accent transition-colors truncate">
-                    {skill.name}
+                    {skill.pluginName ? (
+                      <span>
+                        <span className="text-ink-dim">{skill.pluginName}:</span>
+                        {skill.name.split(":").slice(1).join(":")}
+                      </span>
+                    ) : (
+                      skill.name
+                    )}
                   </div>
                   <div className="text-xs text-ink-dim truncate">
                     {skill.description}
@@ -145,6 +156,9 @@ export default function SkillsPage() {
                 </div>
               </Link>
               <div className="flex items-center gap-3 ml-3 shrink-0">
+                {skill.pluginId && (
+                  <Badge variant="accent" className="text-xs">plugin</Badge>
+                )}
                 <Badge variant="default">{skill.agentId}</Badge>
                 <span className="text-xs text-ink-dim">{skill.scope}</span>
                 <div className="flex gap-1">

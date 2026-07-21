@@ -17,6 +17,8 @@ export interface Skill {
   hasScripts: boolean;
   hasAssets: boolean;
   hasReferences: boolean;
+  pluginId?: string;
+  pluginName?: string;
 }
 
 export interface StoreSkill {
