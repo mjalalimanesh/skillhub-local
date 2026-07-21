@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Bot, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
+import { Bot, ChevronRight, CheckCircle2, XCircle, Puzzle } from "lucide-react";
 
 export default function AgentsPage() {
   const { data, isLoading } = useQuery({
@@ -43,6 +43,7 @@ function AgentCard({
     name: string;
     detected: boolean;
     skillCount: number;
+    pluginCount: number;
     icon: string;
     builtInNote?: string;
   };
@@ -85,6 +86,13 @@ function AgentCard({
             <span>Not detected</span>
           )}
         </div>
+
+        {agent.pluginCount > 0 && (
+          <div className="flex items-center gap-1 text-xs text-ink-dim mt-1">
+            <Puzzle size={12} className="text-purple-500" />
+            {agent.pluginCount} plugin{agent.pluginCount !== 1 ? "s" : ""}
+          </div>
+        )}
 
         {agent.builtInNote && (
           <div className="text-xs text-ink-dim mt-2 italic">

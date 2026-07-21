@@ -3,6 +3,7 @@ export interface Agent {
   name: string;
   detected: boolean;
   skillCount: number;
+  pluginCount: number;
   icon: string;
 }
 

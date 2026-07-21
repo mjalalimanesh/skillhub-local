@@ -16,7 +16,7 @@ export const api = {
   health: () => request<{ status: string }>("/api/health"),
 
   getAgents: () =>
-    request<{ agents: Array<{ id: string; name: string; detected: boolean; skillCount: number; icon: string }> }>("/api/agents"),
+    request<{ agents: Array<{ id: string; name: string; detected: boolean; skillCount: number; pluginCount: number; icon: string }> }>("/api/agents"),
 
   getAgentSkills: (agentId: string) =>
     request<{ agent: any; skills: any[] }>(`/api/agents/${agentId}/skills`),

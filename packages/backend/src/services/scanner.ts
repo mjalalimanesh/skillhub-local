@@ -124,6 +124,7 @@ export interface DetectedAgent {
   skillDir: string;
   detected: boolean;
   skillCount: number;
+  pluginCount: number;
   icon: string;
   builtInNote?: string;
 }
@@ -145,6 +146,7 @@ export interface InstalledSkill {
 
 export async function detectAgents(): Promise<DetectedAgent[]> {
   const results: DetectedAgent[] = [];
+  const allPlugins = await detectInstalledPlugins();
 
   for (const agent of AGENT_DEFINITIONS) {
     const globalDir = expandHome(agent.globalDir);
@@ -167,6 +169,11 @@ export async function detectAgents(): Promise<DetectedAgent[]> {
       }
     }
 
+    // Count plugins and their skills for this agent
+    const agentPlugins = allPlugins.filter((p) => p.agentId === agent.id);
+    const pluginSkillCount = agentPlugins.reduce((sum, p) => sum + p.skillCount, 0);
+    skillCount += pluginSkillCount;
+
     results.push({
       id: agent.id,
       name: agent.name,
@@ -174,6 +181,7 @@ export async function detectAgents(): Promise<DetectedAgent[]> {
       skillDir: globalDir,
       detected,
       skillCount,
+      pluginCount: agentPlugins.length,
       icon: agent.icon,
       builtInNote: agent.builtInNote,
     });
