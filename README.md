@@ -7,7 +7,8 @@ Local web app for managing AI agent skills across your PC.
 - Auto-detects 16+ AI agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, etc.)
 - Scans installed skills via filesystem, parses SKILL.md with gray-matter
 - Installs/removes/updates via `npx skills` CLI with live WebSocket progress
-- Browses skills.sh store (950K+ installs ecosystem)
+- Browses skills.sh store via CLI search (950K+ installs ecosystem)
+- Skill detail page with per-agent install status
 - Agent matrix view (skill × agent cross-reference)
 - Copy skills between agents with one click
 - Plugin system with custom sources, agents, hooks via `skillhub.config.json`
@@ -35,7 +36,7 @@ Backend runs on `http://localhost:3742`. Frontend proxies to it in dev mode.
 - **Frontend:** Vite + React 19 + TypeScript + Tailwind CSS v4 + shadcn/ui
 - **Backend:** Fastify 5 + WebSocket + gray-matter
 - **CLI:** `npx skills` (non-interactive flags)
-- **Store:** skills.sh REST API
+- **Store:** `npx skills find` CLI search
 
 ## Project Structure
 
