@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams, Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Package, Trash2, RefreshCw, Copy, Filter } from "lucide-react";
 import { CopyToAgentsDialog } from "./CopyToAgentsDialog";
 
 export default function SkillsPage() {
-  const [filterAgent, setFilterAgent] = useState<string>("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialAgent = searchParams.get("agent") || "all";
+  const [filterAgent, setFilterAgent] = useState<string>(initialAgent);
   const [filterScope, setFilterScope] = useState<string>("all");
   const [copySkill, setCopySkill] = useState<{ path: string; name: string; agent: string } | null>(null);
   const queryClient = useQueryClient();
@@ -47,7 +50,15 @@ export default function SkillsPage() {
           <Filter size={14} className="text-text-dim" />
           <select
             value={filterAgent}
-            onChange={(e) => setFilterAgent(e.target.value)}
+            onChange={(e) => {
+              setFilterAgent(e.target.value);
+              if (e.target.value === "all") {
+                searchParams.delete("agent");
+              } else {
+                searchParams.set("agent", e.target.value);
+              }
+              setSearchParams(searchParams);
+            }}
             className="bg-transparent text-sm text-text outline-none"
           >
             <option value="all">All Agents</option>
@@ -77,16 +88,21 @@ export default function SkillsPage() {
           {filtered.map((skill) => (
             <div
               key={skill.id}
-              className="flex items-center justify-between bg-surface border border-border rounded-lg px-4 py-3 hover:border-border-hover transition-colors"
+              className="flex items-center justify-between bg-surface border border-border rounded-lg px-4 py-3 hover:border-border-hover transition-colors group"
             >
-              <div className="flex items-center gap-3">
-                <Package size={16} className="text-primary" />
-                <div>
-                  <div className="text-sm font-medium">{skill.name}</div>
-                  <div className="text-xs text-text-dim">{skill.description}</div>
+              <Link
+                to={`/skills/${skill.name}`}
+                className="flex items-center gap-3 flex-1 min-w-0"
+              >
+                <Package size={16} className="text-primary shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                    {skill.name}
+                  </div>
+                  <div className="text-xs text-text-dim truncate">{skill.description}</div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
+              </Link>
+              <div className="flex items-center gap-3 ml-3 shrink-0">
                 <span className="text-xs bg-surface-alt px-2 py-1 rounded text-text-muted">
                   {skill.agentId}
                 </span>
@@ -95,31 +111,39 @@ export default function SkillsPage() {
                   <button
                     className="p-1.5 rounded hover:bg-surface-alt text-text-dim hover:text-primary transition-colors"
                     title="Copy to other agents"
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       setCopySkill({
                         path: skill.path,
                         name: skill.name,
                         agent: skill.agentId,
-                      })
-                    }
+                      });
+                    }}
                   >
                     <Copy size={14} />
                   </button>
                   <button
                     className="p-1.5 rounded hover:bg-surface-alt text-text-dim hover:text-text transition-colors"
                     title="Update"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
                   >
                     <RefreshCw size={14} />
                   </button>
                   <button
                     className="p-1.5 rounded hover:bg-surface-alt text-text-dim hover:text-danger transition-colors"
                     title="Remove"
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
                       removeMutation.mutate({
                         skill: skill.name,
                         agents: [skill.agentId],
-                      })
-                    }
+                      });
+                    }}
                   >
                     <Trash2 size={14} />
                   </button>
