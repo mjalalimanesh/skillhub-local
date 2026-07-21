@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { WebSocket } from "ws";
 import { scanAllSkills, copySkillToAgents } from "../services/scanner.js";
-import { runSkillsCLI, validateSource, validateSkillName } from "../services/cli.js";
+import { runSkillsCLI, validateSource, validateSkillName, searchSkillsCLI } from "../services/cli.js";
 
 interface WSProgressEvent {
   type: "install" | "remove" | "update" | "error" | "done";
@@ -148,35 +148,31 @@ export default async function skillRoutes(app: FastifyInstance) {
     }
 
     try {
-      const res = await fetch(
-        `https://skills.sh/api/v1/skills/search?q=${encodeURIComponent(q)}&limit=20`
-      );
-      const data = await res.json();
-      return data;
-    } catch (err) {
-      return reply.code(502).send({ error: "Failed to search skills.sh" });
+      const results = await searchSkillsCLI(q);
+      return { skills: results };
+    } catch {
+      return reply.code(502).send({ error: "Failed to search skills" });
     }
   });
 
-  app.get("/api/skills/trending", async () => {
+  app.get("/api/skills/trending", async (_request, reply) => {
     try {
-      const res = await fetch(
-        "https://skills.sh/api/v1/skills?sort=trending&limit=20"
-      );
-      const data = await res.json();
-      return data;
+      const results = await searchSkillsCLI("skill");
+      return { skills: results };
     } catch {
-      return { skills: [] };
+      return reply.code(502).send({ error: "Failed to fetch trending skills", skills: [] });
     }
   });
 
-  app.get("/api/skills/curated", async () => {
+  app.get("/api/skills/curated", async (request, reply) => {
     try {
-      const res = await fetch("https://skills.sh/api/v1/skills/curated");
+      const res = await fetch("https://skills.sh/api/v1/skills/curated", {
+        signal: AbortSignal.timeout(10000),
+      });
       const data = await res.json();
       return data;
     } catch {
-      return { skills: [] };
+      return reply.code(502).send({ error: "Failed to fetch curated skills", skills: [] });
     }
   });
 }
