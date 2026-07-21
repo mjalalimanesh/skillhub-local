@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ export default function PluginsPage() {
   const [expandedPlugin, setExpandedPlugin] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
+  const navigate = useNavigate();
 
   const { data: config } = useQuery({
     queryKey: ["config"],
@@ -174,10 +175,10 @@ export default function PluginsPage() {
                   {isExpanded && (
                     <div className="ml-8 mt-2 space-y-1">
                       {plugin.skills.map((skill) => (
-                        <Link
+                        <div
                           key={skill.name}
-                          to={`/skills/${plugin.name}:${skill.name}`}
-                          className="flex items-center justify-between px-3 py-2 rounded-md bg-surface-secondary hover:bg-surface-tertiary transition-colors"
+                          className="flex items-center justify-between px-3 py-2 rounded-md bg-surface-secondary hover:bg-surface-tertiary transition-colors cursor-pointer"
+                          onClick={() => navigate(`/skills/${plugin.name}:${skill.name}`)}
                         >
                           <div className="flex items-center gap-2">
                             <Package size={14} className="text-purple-500" />
@@ -186,7 +187,7 @@ export default function PluginsPage() {
                           <span className="text-xs text-ink-dim truncate max-w-[300px]">
                             {skill.description}
                           </span>
-                        </Link>
+                        </div>
                       ))}
                     </div>
                   )}
