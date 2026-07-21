@@ -16,10 +16,12 @@ export default function StorePage() {
     enabled: query.length > 0,
   });
 
-  const { data: trending } = useQuery({
+  const { data: trending, isLoading: trendingLoading } = useQuery({
     queryKey: ["trending"],
     queryFn: api.getTrending,
   });
+
+  const [installing, setInstalling] = useState<Set<string>>(new Set());
 
   const installMutation = useMutation({
     mutationFn: (params: {
@@ -29,7 +31,17 @@ export default function StorePage() {
       global: boolean;
       copy: boolean;
     }) => api.installSkill(params),
+    onMutate: (params) => {
+      setInstalling((prev) => new Set(prev).add(params.skill));
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["skills"] }),
+    onSettled: (_data, _error, params) => {
+      setInstalling((prev) => {
+        const next = new Set(prev);
+        next.delete(params.skill);
+        return next;
+      });
+    },
   });
 
   const skills = query ? (searchResults?.skills || []) : (trending?.skills || []);
@@ -94,17 +106,21 @@ export default function StorePage() {
                     });
                   }
                 }}
-                disabled={installMutation.isPending}
+                disabled={installing.has(skill.slug || skill.name)}
               >
                 <Download size={12} />
-                {installMutation.isPending ? "Installing..." : "Install"}
+                {installing.has(skill.slug || skill.name) ? "Installing..." : "Install"}
               </button>
             </div>
           </div>
         ))}
         {skills.length === 0 && !searching && (
           <div className="text-center py-12 text-text-dim">
-            {query ? "No skills found for this query." : "Loading trending skills..."}
+            {query
+              ? "No skills found for this query."
+              : trendingLoading
+                ? "Loading trending skills..."
+                : "No trending skills available."}
           </div>
         )}
       </div>
