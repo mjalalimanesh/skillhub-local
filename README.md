@@ -39,23 +39,12 @@ Local web app for managing AI agent skills across your PC.
 ## Setup
 
 ```bash
-# Install dependencies
-cd packages/frontend && npm install
-cd ../backend && npm install
-cd ../..
-
-# Development (both servers)
-npm run dev
-
-# Production
-npm run build
-npm run start
+npm install
+npm start
 ```
 
-- **Frontend dev server:** `http://localhost:5173`
-- **Backend API:** `http://localhost:3742`
-- Vite proxies `/api` and `/ws` to backend during development
-- In production, backend serves frontend static files with SPA fallback
+- **App:** `http://localhost:3742`
+- **Development:** `npm run dev` (frontend on `:5173`, backend on `:3742`, Vite proxies `/api` and `/ws`)
 
 ## Tech Stack
 
