@@ -38,7 +38,11 @@ Local web app for managing AI agent skills across your PC.
 
 ## Setup
 
-Requires [Node.js](https://nodejs.org/) (v18+).
+Requires [Node.js](https://nodejs.org/) (v18+) and the [skills](https://www.npmjs.com/package/skills) CLI (used for install/remove/update/search). Global install recommended for performance, but `npx skills` works too:
+
+```bash
+npm install -g skills
+```
 
 ```bash
 git clone https://github.com/mjalalimanesh/skillhub-local.git

@@ -1,6 +1,6 @@
 import { readdir, stat, readFile, access } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { homedir } from "node:os";
+import { homedir, platform } from "node:os";
 import matter from "gray-matter";
 import { detectInstalledPlugins } from "./installed-plugins.js";
 
@@ -31,13 +31,22 @@ const AGENT_DEFINITIONS: AgentDef[] = [
   { id: "roo", name: "Roo Code", globalDir: "~/.roo/skills", projectDir: ".roo/skills", icon: "roo" },
   { id: "goose", name: "Goose", globalDir: "~/.config/goose/skills", projectDir: ".goose/skills", icon: "goose" },
   { id: "antigravity", name: "Antigravity", globalDir: "~/.gemini/antigravity/skills", projectDir: ".agents/skills", icon: "antigravity", extraDirs: [SHARED_GLOBAL_DIR] },
-  { id: "hermes-agent", name: "Hermes Agent", globalDir: "~/AppData/Local/hermes/skills", projectDir: ".hermes/skills", icon: "hermes" },
+  { id: "hermes-agent", name: "Hermes Agent", globalDir: "~/.hermes/skills", projectDir: ".hermes/skills", icon: "hermes" },
   { id: "zed", name: "Zed", globalDir: "~/.agents/skills", projectDir: ".agents/skills", icon: "zed" },
   { id: "warp", name: "Warp", globalDir: "~/.agents/skills", projectDir: ".agents/skills", icon: "warp" },
 ];
 
 function expandHome(p: string): string {
-  if (p.startsWith("~")) return join(homedir(), p.slice(1));
+  if (p.startsWith("~")) {
+    const rest = p.slice(1);
+    // Hermes uses %LOCALAPPDATA% on Windows, ~/.hermes on Unix
+    if ((rest.startsWith("/.hermes") || rest === "/.hermes") && platform() === "win32") {
+      // ~/.hermes/* → ~/AppData/Local/hermes/*
+      const hermesRest = rest.replace(/^\/\.hermes/, "/hermes");
+      return join(homedir(), "AppData", "Local", hermesRest);
+    }
+    return join(homedir(), rest);
+  }
   return resolve(p);
 }
 
@@ -296,7 +305,8 @@ export async function copySkillToAgents(
           results.push({ agent: agentId, success: false, error: "Skill already exists" });
           continue;
         }
-        symlinkSync(skillPath, targetSkillPath, "junction");
+        const symlinkType = platform() === "win32" ? "junction" : "dir";
+        symlinkSync(skillPath, targetSkillPath, symlinkType);
       } else {
         // Copy directory
         const { cpSync, existsSync } = await import("node:fs");
