@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToastStore } from "@/components/ui/toaster";
-import { Plus, Trash2, GitBranch, Bot, Zap } from "lucide-react";
+import { Plus, Trash2, GitBranch, Bot, Zap, Download, Package } from "lucide-react";
 
 export default function PluginsPage() {
   const [showAdd, setShowAdd] = useState(false);
@@ -22,6 +22,11 @@ export default function PluginsPage() {
   const { data: config } = useQuery({
     queryKey: ["config"],
     queryFn: api.getConfig,
+  });
+
+  const { data: installedPluginsData } = useQuery({
+    queryKey: ["installedPlugins"],
+    queryFn: api.getInstalledPlugins,
   });
 
   const addMutation = useMutation({
@@ -50,11 +55,21 @@ export default function PluginsPage() {
   });
 
   const plugins = config?.plugins || [];
+  const installedPlugins = installedPluginsData?.plugins || [];
 
   const typeIcons: Record<string, React.ReactNode> = {
     source: <GitBranch size={16} className="text-accent" />,
     agent: <Bot size={16} className="text-success" />,
     hook: <Zap size={16} className="text-warning" />,
+  };
+
+  const sourceIcons: Record<string, React.ReactNode> = {
+    cursor: <Package size={16} className="text-blue-500" />,
+    codex: <Package size={16} className="text-green-500" />,
+    "claude-code": <Bot size={16} className="text-orange-500" />,
+    opencode: <Zap size={16} className="text-purple-500" />,
+    "gemini-cli": <Zap size={16} className="text-red-500" />,
+    other: <Download size={16} className="text-gray-500" />,
   };
 
   return (
@@ -115,42 +130,82 @@ export default function PluginsPage() {
         </Card>
       )}
 
-      <div className="space-y-2">
-        {plugins.map((plugin: any, i: number) => (
-          <Card
-            key={`${plugin.type}-${plugin.name}`}
-            className="flex items-center justify-between px-4 py-3"
-          >
-            <div className="flex items-center gap-3">
-              {typeIcons[plugin.type]}
-              <div>
-                <div className="text-sm font-medium text-ink">
-                  {plugin.name}
+      {/* Installed Plugins Section */}
+      {installedPlugins.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-ink">Installed Plugins</h2>
+          <div className="space-y-2">
+            {installedPlugins.map((plugin) => (
+              <Card
+                key={plugin.id}
+                className="flex items-center justify-between px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  {sourceIcons[plugin.agentId] || sourceIcons.other}
+                  <div>
+                    <div className="text-sm font-medium text-ink">
+                      {plugin.name}
+                    </div>
+                    <div className="text-xs text-ink-dim">
+                      {plugin.agentName} plugin · {plugin.skillCount} skills
+                      {plugin.version && ` · v${plugin.version}`}
+                    </div>
+                    {plugin.description && (
+                      <div className="text-xs text-ink-dim mt-1">
+                        {plugin.description}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-ink-dim">
-                  {plugin.type} plugin
+                <Badge variant="default" className="text-xs">
+                  {plugin.skillCount} skills
+                </Badge>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* User Configured Plugins Section */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-semibold text-ink">Custom Plugins</h2>
+        <div className="space-y-2">
+          {plugins.map((plugin: any, i: number) => (
+            <Card
+              key={`${plugin.type}-${plugin.name}`}
+              className="flex items-center justify-between px-4 py-3"
+            >
+              <div className="flex items-center gap-3">
+                {typeIcons[plugin.type]}
+                <div>
+                  <div className="text-sm font-medium text-ink">
+                    {plugin.name}
+                  </div>
+                  <div className="text-xs text-ink-dim">
+                    {plugin.type} plugin
+                  </div>
                 </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  removeMutation.mutate({
+                    type: plugin.type,
+                    name: plugin.name,
+                  })
+                }
+              >
+                <Trash2 size={14} className="text-danger" />
+              </Button>
+            </Card>
+          ))}
+          {plugins.length === 0 && (
+            <div className="text-center py-6 text-ink-dim text-sm">
+              No custom plugins configured.
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() =>
-                removeMutation.mutate({
-                  type: plugin.type,
-                  name: plugin.name,
-                })
-              }
-            >
-              <Trash2 size={14} className="text-danger" />
-            </Button>
-          </Card>
-        ))}
-        {plugins.length === 0 && (
-          <div className="text-center py-12 text-ink-dim">
-            No plugins configured.
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

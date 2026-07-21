@@ -20,7 +20,7 @@ const AGENT_DEFINITIONS: AgentDef[] = [
   { id: "claude-code", name: "Claude Code", globalDir: "~/.claude/skills", projectDir: ".claude/skills", icon: "anthropic", extraDirs: [SHARED_GLOBAL_DIR] },
   { id: "codex", name: "Codex", globalDir: "~/.codex/skills", projectDir: ".agents/skills", icon: "openai", extraDirs: [SHARED_GLOBAL_DIR] },
   { id: "opencode", name: "OpenCode", globalDir: "~/.config/opencode/skills", projectDir: ".agents/skills", icon: "opencode", extraDirs: [SHARED_GLOBAL_DIR, "~/.claude/skills", "~/.opencode/skills"], builtInNote: "Also has embedded skills (e.g. customize-opencode) compiled into the binary" },
-  { id: "cursor", name: "Cursor", globalDir: "~/.cursor/skills", projectDir: ".agents/skills", icon: "cursor", extraDirs: ["~/.cursor/skills-cursor", SHARED_GLOBAL_DIR] },
+  { id: "cursor", name: "Cursor", globalDir: "~/.cursor/skills", projectDir: ".agents/skills", icon: "cursor", extraDirs: ["~/.cursor/skills-cursor", "~/.cursor/plugins/cache/cursor-public", SHARED_GLOBAL_DIR] },
   { id: "gemini-cli", name: "Gemini CLI", globalDir: "~/.gemini/skills", projectDir: ".agents/skills", icon: "gemini", extraDirs: [SHARED_GLOBAL_DIR] },
   { id: "github-copilot", name: "GitHub Copilot", globalDir: "~/.copilot/skills", projectDir: ".agents/skills", icon: "copilot", extraDirs: [SHARED_GLOBAL_DIR] },
   { id: "windsurf", name: "Windsurf", globalDir: "~/.codeium/windsurf/skills", projectDir: ".windsurf/skills", icon: "windsurf" },
@@ -61,7 +61,7 @@ async function pathExists(p: string): Promise<boolean> {
 
 async function scanSkillDir(dir: string, depth = 0): Promise<SkillEntry[]> {
   const skills: SkillEntry[] = [];
-  if (!(await pathExists(dir)) || depth > 3) return skills;
+  if (!(await pathExists(dir)) || depth > 5) return skills;
 
   try {
     const entries = await readdir(dir, { withFileTypes: true });

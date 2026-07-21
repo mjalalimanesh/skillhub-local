@@ -91,4 +91,7 @@ export const api = {
 
   removePlugin: (type: string, name: string) =>
     request<any>(`/api/plugins/${type}/${name}`, { method: "DELETE" }),
+
+  getInstalledPlugins: () =>
+    request<{ plugins: Array<{ id: string; name: string; agentId: string; agentName: string; skillCount: number; skills: string[]; version?: string; description?: string }> }>("/api/installed-plugins"),
 };

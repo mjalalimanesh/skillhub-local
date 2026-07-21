@@ -6,6 +6,7 @@ import {
   removePlugin,
   updatePreferences,
 } from "../services/plugins.js";
+import { detectInstalledPlugins } from "../services/installed-plugins.js";
 
 export default async function configRoutes(app: FastifyInstance) {
   app.get("/api/config", async () => {
@@ -40,5 +41,10 @@ export default async function configRoutes(app: FastifyInstance) {
   app.put("/api/preferences", async (request) => {
     const body = request.body as Record<string, unknown>;
     return updatePreferences(body as any);
+  });
+
+  app.get("/api/installed-plugins", async () => {
+    const plugins = await detectInstalledPlugins();
+    return { plugins };
   });
 }
