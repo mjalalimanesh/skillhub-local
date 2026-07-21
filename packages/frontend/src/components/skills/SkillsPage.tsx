@@ -31,6 +31,7 @@ export default function SkillsPage() {
   const [removeTarget, setRemoveTarget] = useState<{
     name: string;
     agentId: string;
+    path: string;
   } | null>(null);
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
@@ -46,7 +47,7 @@ export default function SkillsPage() {
   });
 
   const removeMutation = useMutation({
-    mutationFn: (params: { skill: string; agents: string[] }) =>
+    mutationFn: (params: { skill: string; agents: string[]; skillPath?: string }) =>
       api.removeSkill(params),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["skills"] });
@@ -206,6 +207,7 @@ export default function SkillsPage() {
                       setRemoveTarget({
                         name: skill.name,
                         agentId: skill.agentId,
+                        path: skill.path,
                       });
                     }}
                   >
@@ -237,7 +239,7 @@ export default function SkillsPage() {
         open={!!removeTarget}
         onOpenChange={(open) => !open && setRemoveTarget(null)}
         title={`Remove "${removeTarget?.name}"?`}
-        description={`This will remove the skill from agent "${removeTarget?.agentId}".`}
+        description={`This will delete "${removeTarget?.name}" from disk and remove it from agent "${removeTarget?.agentId}".`}
         confirmLabel="Remove"
         confirmVariant="danger"
         onConfirm={() => {
@@ -245,6 +247,7 @@ export default function SkillsPage() {
             removeMutation.mutate({
               skill: removeTarget.name,
               agents: [removeTarget.agentId],
+              skillPath: removeTarget.path,
             });
             setRemoveTarget(null);
           }

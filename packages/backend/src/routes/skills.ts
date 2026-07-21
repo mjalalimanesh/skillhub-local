@@ -85,6 +85,7 @@ export default async function skillRoutes(app: FastifyInstance) {
       skill: string;
       agents: string[];
       global?: boolean;
+      skillPath?: string;
     };
 
     if (!body.skill || !validateSkillName(body.skill)) {
@@ -92,6 +93,14 @@ export default async function skillRoutes(app: FastifyInstance) {
     }
     if (!body.agents?.length) {
       return reply.code(400).send({ error: "At least one agent required" });
+    }
+
+    // Delete the actual skill directory from disk if path provided
+    if (body.skillPath) {
+      try {
+        const { rm } = await import("node:fs/promises");
+        await rm(body.skillPath, { recursive: true, force: true });
+      } catch {}
     }
 
     const args = ["remove", "--skill", body.skill, "--yes"];

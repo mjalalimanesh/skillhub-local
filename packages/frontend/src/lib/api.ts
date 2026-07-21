@@ -44,7 +44,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  removeSkill: (body: { skill: string; agents: string[]; global?: boolean }) =>
+  removeSkill: (body: { skill: string; agents: string[]; skillPath?: string }) =>
     request<any>("/api/skills/remove", {
       method: "POST",
       body: JSON.stringify(body),

@@ -44,6 +44,7 @@ export default function SkillDetailPage() {
       api.removeSkill({
         skill: skillName!,
         agents: instances.map((i) => i.agentId),
+        skillPath: primaryInstance?.path,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["skills"] });
