@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Bot, Package, TrendingUp, ArrowUpCircle } from "lucide-react";
 
@@ -32,24 +33,28 @@ export default function DashboardPage() {
           label="Agents Detected"
           value={detectedAgents.length}
           color="text-primary"
+          to="/agents"
         />
         <StatCard
           icon={<Package size={20} />}
           label="Total Skills"
           value={skills.length}
           color="text-success"
+          to="/skills"
         />
         <StatCard
           icon={<TrendingUp size={20} />}
           label="Agents Supported"
           value={agents.length}
           color="text-warning"
+          to="/agents"
         />
         <StatCard
           icon={<ArrowUpCircle size={20} />}
           label="Trending in Store"
           value={trending?.skills?.length || 0}
           color="text-primary-hover"
+          to="/store"
         />
       </div>
 
@@ -58,10 +63,14 @@ export default function DashboardPage() {
           <h2 className="text-sm font-semibold text-text-muted mb-3">Detected Agents</h2>
           <div className="space-y-2">
             {detectedAgents.map((agent) => (
-              <div key={agent.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-alt">
+              <Link
+                key={agent.id}
+                to={`/skills?agent=${agent.id}`}
+                className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-alt hover:border-primary/50 border border-transparent transition-colors"
+              >
                 <span className="text-sm font-medium">{agent.name}</span>
                 <span className="text-xs text-text-muted">{agent.skillCount} skills</span>
-              </div>
+              </Link>
             ))}
             {detectedAgents.length === 0 && (
               <p className="text-sm text-text-dim">No agents detected yet.</p>
@@ -73,13 +82,17 @@ export default function DashboardPage() {
           <h2 className="text-sm font-semibold text-text-muted mb-3">Recent Skills</h2>
           <div className="space-y-2">
             {skills.slice(0, 5).map((skill) => (
-              <div key={skill.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-alt">
+              <Link
+                key={skill.id}
+                to={`/skills/${skill.name}`}
+                className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-alt hover:border-primary/50 border border-transparent transition-colors"
+              >
                 <div>
                   <span className="text-sm font-medium">{skill.name}</span>
                   <span className="text-xs text-text-dim ml-2">({skill.agentId})</span>
                 </div>
                 <span className="text-xs text-text-muted">{skill.scope}</span>
-              </div>
+              </Link>
             ))}
             {skills.length === 0 && (
               <p className="text-sm text-text-dim">No skills installed yet.</p>
@@ -96,19 +109,24 @@ function StatCard({
   label,
   value,
   color,
+  to,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
   color: string;
+  to: string;
 }) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-4">
+    <Link
+      to={to}
+      className="block bg-surface border border-border rounded-xl p-4 hover:border-primary/50 transition-colors"
+    >
       <div className="flex items-center gap-2 text-text-muted mb-2">
         <span className={color}>{icon}</span>
         <span className="text-xs">{label}</span>
       </div>
       <div className="text-2xl font-bold">{value}</div>
-    </div>
+    </Link>
   );
 }

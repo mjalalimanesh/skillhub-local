@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Bot, ChevronRight, CheckCircle2, XCircle } from "lucide-react";
@@ -37,12 +38,13 @@ function AgentCard({
   agent: { id: string; name: string; detected: boolean; skillCount: number; icon: string; builtInNote?: string };
 }) {
   return (
-    <div
+    <Link
+      to={agent.detected ? `/skills?agent=${agent.id}` : "#"}
       className={cn(
-        "bg-surface border rounded-xl p-5 transition-colors cursor-pointer group",
+        "block bg-surface border rounded-xl p-5 transition-colors group",
         agent.detected
-          ? "border-border hover:border-primary/50"
-          : "border-border/50 opacity-50"
+          ? "border-border hover:border-primary/50 cursor-pointer"
+          : "border-border/50 opacity-50 cursor-not-allowed"
       )}
     >
       <div className="flex items-center justify-between mb-3">
@@ -72,6 +74,6 @@ function AgentCard({
       <div className="text-xs text-text-dim mt-3 flex items-center gap-1 group-hover:text-primary transition-colors">
         View skills <ChevronRight size={12} />
       </div>
-    </div>
+    </Link>
   );
 }
