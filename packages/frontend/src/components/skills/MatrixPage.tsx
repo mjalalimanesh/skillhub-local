@@ -1,13 +1,19 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { Copy, Check } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { CopyToAgentsDialog } from "./CopyToAgentsDialog";
+import { Copy, Check } from "lucide-react";
 
 export default function MatrixPage() {
-  const [copySkill, setCopySkill] = useState<{ path: string; name: string; agent: string } | null>(null);
-  const queryClient = useQueryClient();
+  const [copySkill, setCopySkill] = useState<{
+    path: string;
+    name: string;
+    agent: string;
+  } | null>(null);
 
   const { data: agentData } = useQuery({
     queryKey: ["agents"],
@@ -22,66 +28,68 @@ export default function MatrixPage() {
   const agents = (agentData?.agents || []).filter((a) => a.detected);
   const skills = skillData?.skills || [];
 
-  // Build unique skill names
   const skillNames = [...new Set(skills.map((s) => s.name))].sort();
 
-  // Build lookup: skillName -> Set<agentId>
   const matrix = new Map<string, Set<string>>();
   for (const skill of skills) {
     if (!matrix.has(skill.name)) matrix.set(skill.name, new Set());
     matrix.get(skill.name)!.add(skill.agentId);
   }
 
-  // Build lookup: skillName -> first skill entry (for path)
   const skillPaths = new Map<string, string>();
   for (const skill of skills) {
     if (!skillPaths.has(skill.name)) skillPaths.set(skill.name, skill.path);
   }
 
-  // Build lookup: skillName -> first agentId that has it
   const skillSourceAgent = new Map<string, string>();
   for (const skill of skills) {
-    if (!skillSourceAgent.has(skill.name)) skillSourceAgent.set(skill.name, skill.agentId);
+    if (!skillSourceAgent.has(skill.name))
+      skillSourceAgent.set(skill.name, skill.agentId);
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Agent Matrix</h1>
-      <p className="text-sm text-text-muted">
-        Cross-reference of skills across all detected agents. Click the copy icon to distribute a skill to other agents.
-      </p>
+      <PageHeader
+        title="Agent Matrix"
+        description="Cross-reference of skills across all detected agents."
+      />
 
-      <div className="overflow-x-auto">
+      <Card className="overflow-x-auto p-0">
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="text-left text-sm font-medium text-text-muted px-4 py-3 border-b border-border sticky left-0 bg-bg">
+              <th className="text-left text-sm font-medium text-ink-muted px-4 py-3 border-b border-line sticky left-0 bg-surface z-10">
                 Skill
               </th>
               {agents.map((agent) => (
                 <th
                   key={agent.id}
-                  className="text-center text-xs font-medium text-text-muted px-4 py-3 border-b border-border min-w-[100px]"
+                  className="text-center text-xs font-medium text-ink-muted px-4 py-3 border-b border-line min-w-[100px] bg-surface"
                 >
                   {agent.name}
                 </th>
               ))}
-              <th className="px-4 py-3 border-b border-border w-10"></th>
+              <th className="px-4 py-3 border-b border-line w-10 bg-surface" />
             </tr>
           </thead>
           <tbody>
             {skillNames.map((skillName) => {
               const installedIn = matrix.get(skillName) || new Set();
-              const missingCount = agents.filter((a) => !installedIn.has(a.id)).length;
+              const missingCount = agents.filter(
+                (a) => !installedIn.has(a.id)
+              ).length;
               const sourceAgent = skillSourceAgent.get(skillName) || "";
               const skillPath = skillPaths.get(skillName) || "";
 
               return (
-                <tr key={skillName} className="hover:bg-surface-alt/50">
-                  <td className="text-sm px-4 py-2.5 border-b border-border/50 sticky left-0 bg-bg">
+                <tr
+                  key={skillName}
+                  className="hover:bg-raised/50 transition-colors"
+                >
+                  <td className="text-sm px-4 py-2.5 border-b border-line/50 sticky left-0 bg-surface z-10">
                     <Link
                       to={`/skills/${skillName}`}
-                      className="hover:text-primary transition-colors"
+                      className="text-ink hover:text-accent transition-colors"
                     >
                       {skillName}
                     </Link>
@@ -91,24 +99,25 @@ export default function MatrixPage() {
                     return (
                       <td
                         key={agent.id}
-                        className="text-center px-4 py-2.5 border-b border-border/50"
+                        className="text-center px-4 py-2.5 border-b border-line/50"
                       >
                         {installed ? (
-                          <span className="inline-block w-5 h-5 rounded-full bg-success/20 text-success text-xs leading-5">
-                            ✓
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-success/15 text-success text-xs">
+                            <Check size={12} />
                           </span>
                         ) : (
-                          <span className="inline-block w-5 h-5 rounded-full bg-surface-alt text-text-dim text-xs leading-5">
-                            —
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-raised text-ink-dim text-xs">
+                            &mdash;
                           </span>
                         )}
                       </td>
                     );
                   })}
-                  <td className="px-4 py-2.5 border-b border-border/50">
+                  <td className="px-4 py-2.5 border-b border-line/50">
                     {missingCount > 0 && (
-                      <button
-                        className="p-1 rounded hover:bg-surface-alt text-text-dim hover:text-primary transition-colors"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         title={`Copy to ${missingCount} other agent${missingCount !== 1 ? "s" : ""}`}
                         onClick={() =>
                           setCopySkill({
@@ -119,7 +128,7 @@ export default function MatrixPage() {
                         }
                       >
                         <Copy size={14} />
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
@@ -129,7 +138,7 @@ export default function MatrixPage() {
               <tr>
                 <td
                   colSpan={agents.length + 2}
-                  className="text-center py-12 text-text-dim"
+                  className="text-center py-12 text-ink-dim"
                 >
                   No skills installed across any agent.
                 </td>
@@ -137,7 +146,7 @@ export default function MatrixPage() {
             )}
           </tbody>
         </table>
-      </div>
+      </Card>
 
       {copySkill && (
         <CopyToAgentsDialog

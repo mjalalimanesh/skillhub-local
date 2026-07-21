@@ -1,26 +1,94 @@
 @import "tailwindcss";
+@import "@fontsource/geist-sans/400.css";
+@import "@fontsource/geist-sans/500.css";
+@import "@fontsource/geist-sans/600.css";
+@import "@fontsource/geist-sans/700.css";
+@import "@fontsource/geist-mono/400.css";
+@import "tw-animate-css";
 
-@theme {
-  --color-bg: #0a0a0b;
-  --color-surface: #111113;
-  --color-surface-alt: #1a1a1f;
-  --color-border: #27272a;
-  --color-border-hover: #3f3f46;
-  --color-text: #fafafa;
-  --color-text-muted: #a1a1aa;
-  --color-text-dim: #71717a;
-  --color-primary: #6366f1;
-  --color-primary-hover: #818cf8;
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
+/*
+ * Design tokens — semantic names referencing CSS variables.
+ * `@theme inline` makes these available as Tailwind utilities:
+ *   bg-base, bg-surface, bg-raised, text-ink, text-ink-muted,
+ *   border-line, border-line-strong, bg-accent, text-accent, etc.
+ *
+ * Radius scale (enforced everywhere):
+ *   inputs/buttons: 8px  (--radius-sm)
+ *   cards/dialogs: 12px  (--radius-md)
+ */
+@theme inline {
+  --color-base: var(--base);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-dim: var(--ink-dim);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono",
+    Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/*
+ * DARK THEME (default)
+ * Off-black base, zinc-family neutrals, ember orange accent.
+ * No pure #000 or #fff — uses near-black / off-white for depth.
+ */
+:root {
+  --base: #0a0a0b;
+  --surface: #111113;
+  --raised: #1a1a1f;
+  --line: #27272a;
+  --line-strong: #3f3f46;
+  --ink: #fafafa;
+  --ink-muted: #a1a1aa;
+  --ink-dim: #71717a;
+  --accent: #f97316;
+  --accent-hover: #fb923c;
+  --success: #22c55e;
+  --warning: #eab308;
+  --danger: #ef4444;
+  color-scheme: dark;
+}
+
+/*
+ * LIGHT THEME
+ * Applied when <html class="light"> is set.
+ * Off-white base, warm stone neutrals, deeper orange for contrast.
+ */
+.light {
+  --base: #fafaf9;
+  --surface: #ffffff;
+  --raised: #f5f5f4;
+  --line: #e7e5e4;
+  --line-strong: #d6d3d1;
+  --ink: #1c1917;
+  --ink-muted: #57534e;
+  --ink-dim: #a8a29e;
+  --accent: #ea580c;
+  --accent-hover: #f97316;
+  --success: #16a34a;
+  --warning: #ca8a04;
+  --danger: #dc2626;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--base);
+  color: var(--ink);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -39,10 +107,10 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: var(--line);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-border-hover);
+  background: var(--line-strong);
 }

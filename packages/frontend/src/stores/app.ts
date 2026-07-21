@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { Agent, Skill, WSProgressEvent } from "@/lib/types";
 
+const MAX_PROGRESS = 50;
+
 interface AppState {
   agents: Agent[];
   skills: Skill[];
@@ -27,7 +29,9 @@ export const useAppStore = create<AppState>((set) => ({
   setSkills: (skills) => set({ skills }),
   setSelectedAgent: (id) => set({ selectedAgent: id }),
   addProgress: (event) =>
-    set((state) => ({ progress: [...state.progress, event] })),
+    set((state) => ({
+      progress: [...state.progress.slice(-(MAX_PROGRESS - 1)), event],
+    })),
   clearProgress: () => set({ progress: [] }),
   setWsConnected: (connected) => set({ wsConnected: connected }),
 }));

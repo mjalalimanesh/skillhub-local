@@ -2,7 +2,14 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAppStore } from "@/stores/app";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { useToastStore } from "@/components/ui/toaster";
 import { Copy, Check, X } from "lucide-react";
 
 interface CopyToAgentsDialogProps {
@@ -23,6 +30,7 @@ export function CopyToAgentsDialog({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const agents = useAppStore((s) => s.agents);
   const queryClient = useQueryClient();
+  const addToast = useToastStore((s) => s.addToast);
 
   const copyMutation = useMutation({
     mutationFn: () =>
@@ -36,6 +44,7 @@ export function CopyToAgentsDialog({
       queryClient.invalidateQueries({ queryKey: ["agents"] });
       onOpenChange(false);
       setSelected(new Set());
+      addToast({ type: "success", title: "Skill copied" });
     },
   });
 
@@ -58,22 +67,22 @@ export function CopyToAgentsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-surface border-border max-w-md">
+      <DialogContent className="bg-surface border-line max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Copy size={16} className="text-primary" />
+            <Copy size={16} className="text-accent" />
             Copy "{skillName}" to agents
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 mt-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-text-dim">
+            <span className="text-xs text-ink-dim">
               {selected.size} of {availableAgents.length} selected
             </span>
             <button
               onClick={selectAll}
-              className="text-xs text-primary hover:text-primary-hover"
+              className="text-xs text-accent hover:text-accent-hover"
             >
               Select all
             </button>
@@ -84,17 +93,17 @@ export function CopyToAgentsDialog({
               <button
                 key={agent.id}
                 onClick={() => toggleAgent(agent.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-[var(--radius-sm)] text-sm transition-colors ${
                   selected.has(agent.id)
-                    ? "bg-primary/20 border border-primary/50"
-                    : "bg-surface-alt border border-border hover:border-border-hover"
+                    ? "bg-accent/10 border border-accent/30"
+                    : "bg-raised border border-line hover:border-line-strong"
                 }`}
               >
-                <span>{agent.name}</span>
+                <span className="text-ink">{agent.name}</span>
                 {selected.has(agent.id) ? (
-                  <Check size={14} className="text-primary" />
+                  <Check size={14} className="text-accent" />
                 ) : (
-                  <span className="text-xs text-text-dim">
+                  <span className="text-xs text-ink-dim">
                     {agent.skillCount} skills
                   </span>
                 )}
@@ -103,26 +112,24 @@ export function CopyToAgentsDialog({
           </div>
 
           <div className="flex gap-2 mt-4">
-            <button
+            <Button
               onClick={() => copyMutation.mutate()}
               disabled={selected.size === 0 || copyMutation.isPending}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-hover disabled:opacity-50 transition-colors"
+              className="flex-1"
             >
               {copyMutation.isPending ? (
                 "Copying..."
               ) : (
                 <>
                   <Copy size={14} />
-                  Copy to {selected.size} agent{selected.size !== 1 ? "s" : ""}
+                  Copy to {selected.size} agent
+                  {selected.size !== 1 ? "s" : ""}
                 </>
               )}
-            </button>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="px-4 py-2 rounded-lg border border-border text-text-muted text-sm hover:bg-surface-alt transition-colors"
-            >
+            </Button>
+            <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
 
           {copyMutation.data && (

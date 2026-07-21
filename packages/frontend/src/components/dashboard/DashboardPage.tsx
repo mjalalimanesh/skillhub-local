@@ -1,7 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
-import { Bot, Package, TrendingUp, ArrowUpCircle } from "lucide-react";
+import { useAppStore } from "@/stores/app";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Bot,
+  Package,
+  TrendingUp,
+  ArrowUpCircle,
+  CheckCircle2,
+  AlertTriangle,
+  Download,
+  RefreshCw,
+} from "lucide-react";
 
 export default function DashboardPage() {
   const { data: agentData } = useQuery({
@@ -19,114 +32,183 @@ export default function DashboardPage() {
     queryFn: api.getTrending,
   });
 
+  const progress = useAppStore((s) => s.progress);
   const agents = agentData?.agents || [];
   const skills = skillData?.skills || [];
   const detectedAgents = agents.filter((a) => a.detected);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <PageHeader
+        title="Dashboard"
+        description="Overview of your agents, skills, and store activity."
+      />
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          icon={<Bot size={20} />}
+          icon={<Bot size={18} />}
           label="Agents Detected"
           value={detectedAgents.length}
-          color="text-primary"
+          accent="accent"
           to="/agents"
         />
         <StatCard
-          icon={<Package size={20} />}
+          icon={<Package size={18} />}
           label="Total Skills"
           value={skills.length}
-          color="text-success"
+          accent="success"
           to="/skills"
         />
         <StatCard
-          icon={<TrendingUp size={20} />}
+          icon={<TrendingUp size={18} />}
           label="Agents Supported"
           value={agents.length}
-          color="text-warning"
+          accent="warning"
           to="/agents"
         />
         <StatCard
-          icon={<ArrowUpCircle size={20} />}
+          icon={<ArrowUpCircle size={18} />}
           label="Trending in Store"
           value={trending?.skills?.length || 0}
-          color="text-primary-hover"
+          accent="accent"
           to="/store"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-surface border border-border rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-text-muted mb-3">Detected Agents</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-5">
+          <h2 className="text-sm font-semibold text-ink-muted mb-3">
+            Detected Agents
+          </h2>
           <div className="space-y-2">
             {detectedAgents.map((agent) => (
               <Link
                 key={agent.id}
                 to={`/skills?agent=${agent.id}`}
-                className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-alt hover:border-primary/50 border border-transparent transition-colors"
+                className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-raised hover:border-accent/50 border border-transparent transition-colors"
               >
-                <span className="text-sm font-medium">{agent.name}</span>
-                <span className="text-xs text-text-muted">{agent.skillCount} skills</span>
+                <span className="text-sm font-medium text-ink">
+                  {agent.name}
+                </span>
+                <span className="text-xs text-ink-muted">
+                  {agent.skillCount} skills
+                </span>
               </Link>
             ))}
             {detectedAgents.length === 0 && (
-              <p className="text-sm text-text-dim">No agents detected yet.</p>
+              <p className="text-sm text-ink-dim">No agents detected yet.</p>
             )}
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-surface border border-border rounded-xl p-5">
-          <h2 className="text-sm font-semibold text-text-muted mb-3">Recent Skills</h2>
+        <Card className="p-5">
+          <h2 className="text-sm font-semibold text-ink-muted mb-3">
+            Recent Skills
+          </h2>
           <div className="space-y-2">
             {skills.slice(0, 5).map((skill) => (
               <Link
                 key={skill.id}
                 to={`/skills/${skill.name}`}
-                className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-alt hover:border-primary/50 border border-transparent transition-colors"
+                className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-raised hover:border-accent/50 border border-transparent transition-colors"
               >
                 <div>
-                  <span className="text-sm font-medium">{skill.name}</span>
-                  <span className="text-xs text-text-dim ml-2">({skill.agentId})</span>
+                  <span className="text-sm font-medium text-ink">
+                    {skill.name}
+                  </span>
+                  <span className="text-xs text-ink-dim ml-2">
+                    ({skill.agentId})
+                  </span>
                 </div>
-                <span className="text-xs text-text-muted">{skill.scope}</span>
+                <span className="text-xs text-ink-muted">{skill.scope}</span>
               </Link>
             ))}
             {skills.length === 0 && (
-              <p className="text-sm text-text-dim">No skills installed yet.</p>
+              <p className="text-sm text-ink-dim">No skills installed yet.</p>
             )}
           </div>
-        </div>
+        </Card>
+
+        <Card className="p-5 lg:col-span-2">
+          <h2 className="text-sm font-semibold text-ink-muted mb-3">
+            Recent Activity
+          </h2>
+          <div className="space-y-2">
+            {progress.length === 0 ? (
+              <p className="text-sm text-ink-dim">
+                No activity yet. Install or remove skills to see events here.
+              </p>
+            ) : (
+              progress
+                .slice(-10)
+                .reverse()
+                .map((event, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 py-2 px-3 rounded-[var(--radius-sm)] bg-raised"
+                  >
+                    <ActivityIcon type={event.type} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-ink">{event.message}</span>
+                    </div>
+                    {event.skill && (
+                      <Badge variant="default" className="shrink-0">
+                        {event.skill}
+                      </Badge>
+                    )}
+                  </div>
+                ))
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );
 }
 
+const accentColors: Record<string, string> = {
+  accent: "text-accent",
+  success: "text-success",
+  warning: "text-warning",
+};
+
 function StatCard({
   icon,
   label,
   value,
-  color,
+  accent,
   to,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
-  color: string;
+  accent: string;
   to: string;
 }) {
   return (
-    <Link
-      to={to}
-      className="block bg-surface border border-border rounded-xl p-4 hover:border-primary/50 transition-colors"
-    >
-      <div className="flex items-center gap-2 text-text-muted mb-2">
-        <span className={color}>{icon}</span>
-        <span className="text-xs">{label}</span>
-      </div>
-      <div className="text-2xl font-bold">{value}</div>
+    <Link to={to}>
+      <Card className="p-4 hover:border-accent/30 transition-colors cursor-pointer">
+        <div className="flex items-center gap-2 text-ink-muted mb-2">
+          <span className={accentColors[accent] || "text-accent"}>{icon}</span>
+          <span className="text-xs">{label}</span>
+        </div>
+        <div className="text-2xl font-bold text-ink">{value}</div>
+      </Card>
     </Link>
   );
+}
+
+function ActivityIcon({ type }: { type: string }) {
+  switch (type) {
+    case "install":
+      return <Download size={14} className="text-success shrink-0" />;
+    case "remove":
+      return <AlertTriangle size={14} className="text-danger shrink-0" />;
+    case "update":
+      return <RefreshCw size={14} className="text-accent shrink-0" />;
+    case "error":
+      return <AlertTriangle size={14} className="text-danger shrink-0" />;
+    default:
+      return <CheckCircle2 size={14} className="text-ink-dim shrink-0" />;
+  }
 }

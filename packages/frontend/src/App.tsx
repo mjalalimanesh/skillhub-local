@@ -12,8 +12,10 @@ import PluginsPage from "./components/plugins/PluginsPage";
 import SettingsPage from "./components/settings/SettingsPage";
 import { api } from "./lib/api";
 import { useAppStore } from "./stores/app";
+import { useInitTheme } from "./lib/theme";
 
 export default function App() {
+  useInitTheme();
   const setAgents = useAppStore((s) => s.setAgents);
 
   const { data } = useQuery({
