@@ -38,7 +38,11 @@ Local web app for managing AI agent skills across your PC.
 
 ## Setup
 
+Requires [Node.js](https://nodejs.org/) (v18+).
+
 ```bash
+git clone https://github.com/mjalalimanesh/skillhub-local.git
+cd skillhub-local
 npm install
 npm start
 ```
