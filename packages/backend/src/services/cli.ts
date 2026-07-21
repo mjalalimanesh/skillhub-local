@@ -47,6 +47,60 @@ export function runSkillsCLI(
   });
 }
 
+export interface SearchResult {
+  id: string;
+  name: string;
+  source: string;
+  slug: string;
+  installs: number;
+  url: string;
+}
+
+function stripAnsi(str: string): string {
+  return str.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, "");
+}
+
+function parseInstalls(raw: string): number {
+  const clean = raw.replace(/,/g, "");
+  const match = clean.match(/([\d.]+)\s*([KkMm])?/);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const suffix = (match[2] || "").toUpperCase();
+  if (suffix === "K") return Math.round(num * 1_000);
+  if (suffix === "M") return Math.round(num * 1_000_000);
+  return Math.round(num);
+}
+
+export async function searchSkillsCLI(
+  query: string,
+  owner?: string
+): Promise<SearchResult[]> {
+  const args = ["find", query];
+  if (owner) args.push("--owner", owner);
+
+  const result = await runSkillsCLI(args);
+  const clean = stripAnsi(result.stdout);
+
+  const results: SearchResult[] = [];
+  const lines = clean.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const match = line.match(/(.+?)@(\S+)\s+([\d,.KkMm]+)\s+installs/);
+    if (match) {
+      const source = match[1].trim();
+      const slug = match[2].trim();
+      const installs = parseInstalls(match[3]);
+      const url = lines[i + 1]?.replace(/^\s*└\s*/, "").trim() || "";
+      const id = `${source}/${slug}`;
+      const name = slug.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      results.push({ id, name, source, slug, installs, url });
+    }
+  }
+
+  return results;
+}
+
 export function validateSource(source: string): boolean {
   return /^[a-zA-Z0-9._\-\/]+$/.test(source);
 }
