@@ -200,10 +200,19 @@ export default function SkillsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Remove"
+                    title={skill.pluginId ? "Plugin skills cannot be removed" : "Remove"}
+                    disabled={!!skill.pluginId}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
+                      if (skill.pluginId) {
+                        addToast({
+                          type: "error",
+                          title: "Cannot remove plugin skill",
+                          description: "This skill belongs to a plugin and is managed by the agent. Uninstall the plugin from the agent (Cursor, Codex, etc.) to remove it.",
+                        });
+                        return;
+                      }
                       setRemoveTarget({
                         name: skill.name,
                         agentId: skill.agentId,
@@ -211,7 +220,7 @@ export default function SkillsPage() {
                       });
                     }}
                   >
-                    <Trash2 size={14} className="text-danger" />
+                    <Trash2 size={14} className={skill.pluginId ? "text-ink-dim" : "text-danger"} />
                   </Button>
                 </div>
               </div>

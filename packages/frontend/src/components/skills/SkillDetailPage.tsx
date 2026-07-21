@@ -104,7 +104,18 @@ export default function SkillDetailPage() {
             <Button
               variant="danger"
               size="sm"
-              onClick={() => setConfirmDelete(true)}
+              disabled={!!primaryInstance?.pluginId}
+              onClick={() => {
+                if (primaryInstance?.pluginId) {
+                  addToast({
+                    type: "error",
+                    title: "Cannot remove plugin skill",
+                    description: "This skill belongs to a plugin and is managed by the agent. Uninstall the plugin from the agent (Cursor, Codex, etc.) to remove it.",
+                  });
+                  return;
+                }
+                setConfirmDelete(true);
+              }}
             >
               <Trash2 size={14} />
               Delete ({instances.length})
