@@ -201,7 +201,6 @@ export default function SkillsPage() {
                     variant="ghost"
                     size="icon"
                     title={skill.pluginId ? "Plugin skills cannot be removed" : "Remove"}
-                    disabled={!!skill.pluginId}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();

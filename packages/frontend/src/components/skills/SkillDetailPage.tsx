@@ -104,7 +104,6 @@ export default function SkillDetailPage() {
             <Button
               variant="danger"
               size="sm"
-              disabled={!!primaryInstance?.pluginId}
               onClick={() => {
                 if (primaryInstance?.pluginId) {
                   addToast({
