@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Copy, Check } from "lucide-react";
@@ -78,7 +79,12 @@ export default function MatrixPage() {
               return (
                 <tr key={skillName} className="hover:bg-surface-alt/50">
                   <td className="text-sm px-4 py-2.5 border-b border-border/50 sticky left-0 bg-bg">
-                    {skillName}
+                    <Link
+                      to={`/skills/${skillName}`}
+                      className="hover:text-primary transition-colors"
+                    >
+                      {skillName}
+                    </Link>
                   </td>
                   {agents.map((agent) => {
                     const installed = installedIn.has(agent.id);
