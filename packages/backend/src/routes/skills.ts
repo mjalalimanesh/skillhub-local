@@ -1,6 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { WebSocket } from "ws";
-import { scanAllSkills, copySkillToAgents } from "../services/scanner.js";
+import { scanAllSkills, copySkillToAgents, AGENT_DEFINITIONS, expandHome } from "../services/scanner.js";
 import { runSkillsCLI, validateSource, validateSkillName, searchSkillsCLI } from "../services/cli.js";
 
 interface WSProgressEvent {
@@ -42,6 +41,11 @@ export default async function skillRoutes(app: FastifyInstance) {
     if (!body.agents?.length) {
       return reply.code(400).send({ error: "At least one agent required" });
     }
+    const validAgentIds = new Set(AGENT_DEFINITIONS.map((a) => a.id));
+    const invalidAgents = body.agents.filter((a) => !validAgentIds.has(a));
+    if (invalidAgents.length > 0) {
+      return reply.code(400).send({ error: `Unknown agents: ${invalidAgents.join(", ")}` });
+    }
 
     const args = ["add", body.source, "--skill", body.skill, "--yes"];
     for (const agent of body.agents) {
@@ -51,14 +55,7 @@ export default async function skillRoutes(app: FastifyInstance) {
     if (body.copy) args.push("--copy");
 
     const broadcast = (data: string) => {
-      const clients = app.server as any;
-      if (clients?.wsClients) {
-        for (const client of clients.wsClients) {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(data);
-          }
-        }
-      }
+      (app as any).wsBroadcast(data);
     };
     const onProgress = (data: string) => {
       broadcast(JSON.stringify({
@@ -94,11 +91,39 @@ export default async function skillRoutes(app: FastifyInstance) {
     if (!body.agents?.length) {
       return reply.code(400).send({ error: "At least one agent required" });
     }
+    const validAgentIds = new Set(AGENT_DEFINITIONS.map((a) => a.id));
+    const invalidAgents = body.agents.filter((a) => !validAgentIds.has(a));
+    if (invalidAgents.length > 0) {
+      return reply.code(400).send({ error: `Unknown agents: ${invalidAgents.join(", ")}` });
+    }
 
     // Delete the actual skill directory from disk if path provided
     if (body.skillPath) {
+      const { access, rm } = await import("node:fs/promises");
+      const { join } = await import("node:path");
+
+      // Confirm it's a real skill (has SKILL.md)
       try {
-        const { rm } = await import("node:fs/promises");
+        await access(join(body.skillPath, "SKILL.md"));
+      } catch {
+        return reply.code(400).send({ error: "Invalid skill path: not a skill directory" });
+      }
+
+      // Confirm it's under a known skill directory
+      const allowedBases = AGENT_DEFINITIONS.flatMap((a) => [
+        expandHome(a.globalDir),
+        ...(a.extraDirs || []).map(expandHome),
+      ]);
+      const resolved = body.skillPath.replace(/[\\/]/g, "/");
+      const isAllowed = allowedBases.some((base) => {
+        const rp = base.replace(/[\\/]/g, "/");
+        return resolved.startsWith(rp + "/") || resolved === rp;
+      });
+      if (!isAllowed) {
+        return reply.code(400).send({ error: "Invalid skill path: not under a known skill directory" });
+      }
+
+      try {
         await rm(body.skillPath, { recursive: true, force: true });
       } catch {}
     }

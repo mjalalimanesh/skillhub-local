@@ -16,7 +16,14 @@ const HOST = process.env.HOST || "127.0.0.1";
 
 const app = Fastify({ logger: true });
 
-await app.register(cors, { origin: true });
+const distPath = join(__dirname, "../../frontend/dist");
+const isProduction = existsSync(distPath);
+
+await app.register(cors, {
+  origin: isProduction
+    ? false
+    : ["http://localhost:5173", "http://127.0.0.1:5173"],
+});
 
 // Store ws broadcast function for routes to use
 const wsClients = new Set<WebSocket>();
@@ -38,8 +45,7 @@ await app.register(configRoutes);
 await app.register(healthRoutes);
 
 // Serve frontend in production
-const distPath = join(__dirname, "../../frontend/dist");
-if (existsSync(distPath)) {
+if (isProduction) {
   await app.register(fastifyStatic, {
     root: distPath,
     prefix: "/",
