@@ -2,6 +2,7 @@
   "name": "skillhub-local",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "Local web app for managing AI agent skills across your PC",
   "type": "module",
   "scripts": {
