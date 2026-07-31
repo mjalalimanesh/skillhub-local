@@ -54,7 +54,7 @@ export default function MatrixPage() {
         description="Cross-reference of skills across all detected agents."
       />
 
-      <Card className="overflow-auto p-0">
+      <Card className="overflow-auto p-0 max-h-[calc(100vh-12rem)]">
         <table className="w-full border-collapse">
           <thead className="sticky top-0 z-20 bg-surface">
             <tr>
