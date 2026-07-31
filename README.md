@@ -14,27 +14,43 @@ Local web app for managing AI agent skills across your PC.
 - Copy or symlink skills between agents with one click
 - Skill detail page with per-agent install status and raw SKILL.md content
 
+### Skill Store
+- Browse and search the skills.sh registry (950K+ installs ecosystem)
+- Trending and curated skill listings
+- One-click install to all detected agents
+
+### Agent Matrix
+- Cross-reference table showing which skills are installed in which agents
+- Copy missing skills to agents directly from the matrix
+
+### Memories
+- Scans AI-learned context files from Codex, Claude Code, Windsurf, Cline, and Gemini CLI
+- Global and project-scoped memories with agent grouping
+- Inline editor with dirty tracking and save support (read-only for Gemini CLI transcripts)
+- Re-scan button for on-demand refresh
+
+### Instructions
+- Scans user-authored rules and instruction files across 12+ agents (Claude Code, Cursor, Copilot, Windsurf, Cline, Aider, Gemini CLI, Amazon Q, JetBrains Junie, Augment, and AGENTS.md)
+- Global and project-scoped with per-project grouping
+- Detects YAML frontmatter badges
+- Inline editor with dirty tracking and save support
+- Configurable project directories for project-scoped discovery
+
 ### Plugin Detection
 - Detects plugins installed in agent-specific cache directories (Cursor, Codex)
 - Plugin skills appear in the skills list as `plugin-name:skill-name` with a plugin badge
 - Expandable plugin cards to browse skills inside each plugin
 - Custom plugin configuration via `skillhub.config.json` (source, agent, hook types)
 
-### Agent Matrix
-- Cross-reference table showing which skills are installed in which agents
-- Copy missing skills to agents directly from the matrix
-
-### Skill Store
-- Browse and search the skills.sh registry (950K+ installs ecosystem)
-- Trending and curated skill listings
-- One-click install to all detected agents
-
 ### Dashboard
-- Overview with stat cards (agents detected, total skills, plugins, trending)
+- Overview with stat cards (agents detected, total skills, plugins, memories, instructions, trending)
 - Real-time activity feed from WebSocket events
+- Recent context feed showing latest memories and instructions
 
 ### Settings
 - Default scope (global/project), install method (symlink/copy), theme (system/dark/light), telemetry
+- Project directories with native OS folder picker (macOS Finder, Windows Explorer, Linux zenity/kdialog)
+- Auto-save with instant rescan on changes
 
 ## Setup
 
@@ -73,7 +89,9 @@ packages/
 │       │   ├── agents/      # AgentsPage (agent cards with skill/plugin counts)
 │       │   ├── store/       # StorePage (search, trending, install)
 │       │   ├── plugins/     # PluginsPage (detected + custom plugins, expandable)
-│       │   ├── settings/    # SettingsPage (scope, method, theme, telemetry)
+│       │   ├── memories/    # MemoriesPage, AgentMemoriesPage, MemoryDetailPage
+│       │   ├── instructions/# InstructionsPage, ProjectInstructionsPage, InstructionDetailPage
+│       │   ├── settings/    # SettingsPage (scope, method, theme, telemetry, project dirs)
 │       │   ├── layout/      # Layout, Sidebar, PageHeader
 │       │   └── ui/          # Radix-based primitives (button, card, badge, dialog, etc.)
 │       ├── hooks/         # useWebSocket
@@ -81,8 +99,8 @@ packages/
 │       └── lib/           # API client, types, utils
 └── backend/               # Fastify server
     └── src/
-        ├── routes/        # REST endpoints (agents, skills, config, health)
-        └── services/      # Scanner, CLI executor, store API, plugins, installed-plugins
+        ├── routes/        # REST endpoints (agents, skills, config, memories, instructions, browse)
+        └── services/      # Scanner, CLI executor, store API, plugins, memory-scanner, instruction-scanner
 ```
 
 ## API Endpoints
@@ -101,7 +119,15 @@ packages/
 | GET | `/api/skills/search?q=` | Search skills.sh registry |
 | GET | `/api/skills/trending` | Trending skills |
 | GET | `/api/skills/curated` | Curated skills from skills.sh |
-| GET | `/api/config` | Load config (plugins + preferences) |
+| GET | `/api/memories` | List memory files (filterable by `?tool=`, `?scope=`, `?project=`) |
+| GET | `/api/memories/content?path=` | Read memory file content |
+| PUT | `/api/memories/content` | Save memory edits |
+| GET | `/api/instructions` | List instruction files (filterable by `?tool=`, `?scope=`, `?project=`) |
+| GET | `/api/instructions/content?path=` | Read instruction file content |
+| PUT | `/api/instructions/content` | Save instruction edits |
+| GET | `/api/browse?path=` | List subdirectories at path |
+| GET | `/api/browse/pick` | Open native OS folder picker |
+| GET | `/api/config` | Load config (plugins + preferences + project dirs) |
 | PUT | `/api/config` | Save config |
 | POST | `/api/plugins` | Add custom plugin |
 | DELETE | `/api/plugins/:type/:name` | Remove custom plugin |
