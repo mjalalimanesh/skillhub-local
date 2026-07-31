@@ -10,6 +10,7 @@ import MatrixPage from "./components/skills/MatrixPage";
 import StorePage from "./components/store/StorePage";
 import PluginsPage from "./components/plugins/PluginsPage";
 import McpPage from "./components/mcp/McpPage";
+import McpDetailPage from "./components/mcp/McpDetailPage";
 import SettingsPage from "./components/settings/SettingsPage";
 import MemoriesPage from "./components/memories/MemoriesPage";
 import AgentMemoriesPage from "./components/memories/AgentMemoriesPage";
@@ -50,6 +51,7 @@ export default function App() {
         <Route path="/instructions/:instructionId" element={<InstructionDetailPage />} />
         <Route path="/store" element={<StorePage />} />
         <Route path="/plugins" element={<PluginsPage />} />
+        <Route path="/mcp/:serverId" element={<McpDetailPage />} />
         <Route path="/mcp" element={<McpPage />} />
         <Route path="/settings" element={<SettingsPage />} />
       </Route>

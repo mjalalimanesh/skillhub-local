@@ -20,7 +20,10 @@ export interface McpServer {
   args?: string[];
   url?: string;
   type?: string;
+  cwd?: string;
+  env?: Record<string, string>;
   enabled?: boolean;
+  tools?: { enabled: string[]; disabled: string[] };
   raw: Record<string, unknown>;
 }
 
@@ -296,6 +299,21 @@ function extractEntry(
       : undefined;
   const url = typeof entry.url === "string" ? entry.url : undefined;
   const type = typeof entry.type === "string" ? entry.type : undefined;
+  const cwd = typeof entry.cwd === "string" ? entry.cwd : undefined;
+  const env: Record<string, string> | undefined =
+    entry.env && typeof entry.env === "object" && !Array.isArray(entry.env)
+      ? Object.fromEntries(
+          Object.entries(entry.env as Record<string, unknown>)
+            .filter(([, v]) => typeof v === "string")
+            .map(([k, v]) => [k, v as string])
+        )
+      : undefined;
+  const enabledTools = Array.isArray(entry.enabledTools)
+    ? entry.enabledTools.filter((t): t is string => typeof t === "string")
+    : [];
+  const disabledTools = Array.isArray(entry.disabledTools)
+    ? entry.disabledTools.filter((t): t is string => typeof t === "string")
+    : [];
 
   let enabled: boolean | undefined;
   if (typeof entry.disabled === "boolean") enabled = !entry.disabled;
@@ -326,7 +344,13 @@ function extractEntry(
     args,
     url,
     type,
+    cwd,
+    env,
     enabled,
+    tools:
+      enabledTools.length || disabledTools.length
+        ? { enabled: enabledTools, disabled: disabledTools }
+        : undefined,
     raw: entry,
   };
 }

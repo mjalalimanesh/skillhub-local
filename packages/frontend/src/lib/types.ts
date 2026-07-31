@@ -88,3 +88,25 @@ export interface InstructionFile {
   hasFrontmatter: boolean;
   readOnly?: boolean;
 }
+
+export interface McpServer {
+  id: string;
+  name: string;
+  agentId: string;
+  agentName: string;
+  scope: string;
+  projectId?: string;
+  projectName?: string;
+  projectRoot?: string;
+  sourceFile: string;
+  transport: string;
+  command?: string;
+  args?: string[];
+  url?: string;
+  type?: string;
+  cwd?: string;
+  env?: Record<string, string>;
+  enabled?: boolean;
+  tools?: { enabled: string[]; disabled: string[] };
+  raw: Record<string, unknown>;
+}

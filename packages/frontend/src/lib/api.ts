@@ -135,8 +135,14 @@ export const api = {
 
   getMcpServers: (agent?: string) => {
     const qs = agent ? `?agent=${encodeURIComponent(agent)}` : "";
-    return request<{ servers: Array<{ id: string; name: string; agentId: string; agentName: string; scope: string; projectId?: string; projectName?: string; sourceFile: string; transport: string; command?: string; args?: string[]; url?: string; type?: string; enabled?: boolean; raw: Record<string, unknown> }>; total: number }>(`/api/mcp${qs}`);
+    return request<{ servers: Array<{ id: string; name: string; agentId: string; agentName: string; scope: string; projectId?: string; projectName?: string; sourceFile: string; transport: string; command?: string; args?: string[]; url?: string; type?: string; cwd?: string; env?: Record<string, string>; enabled?: boolean; tools?: { enabled: string[]; disabled: string[] }; raw: Record<string, unknown> }>; total: number }>(`/api/mcp${qs}`);
   },
+
+  getMcpTools: (id: string) =>
+    request<{ serverId: string; tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }>; error?: string }>("/api/mcp/tools", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    }),
 
   getMemories: (params?: { tool?: string; scope?: string; project?: string }) => {
     const qs = new URLSearchParams();
