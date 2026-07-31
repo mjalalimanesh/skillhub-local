@@ -2,6 +2,9 @@
 
 Local web app for managing AI agent skills across your PC.
 
+<img width="1855" height="868" alt="image" src="https://github.com/user-attachments/assets/0460e9d4-f49a-4bf9-8daf-730819ef844d" />
+
+
 ## Features
 
 ### Agent Detection
