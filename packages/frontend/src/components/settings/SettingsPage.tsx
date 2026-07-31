@@ -74,8 +74,14 @@ export default function SettingsPage() {
       updated[idx] = result.path;
       setLocalDirs(updated);
       saveProjectDirsMutation.mutate(updated);
-    } catch {
-      // user cancelled
+    } catch (err: any) {
+      if (err?.message !== "cancelled") {
+        addToast({
+          type: "error",
+          title: "Folder picker unavailable",
+          description: "Install zenity (GNOME) or kdialog (KDE) on Linux.",
+        });
+      }
     } finally {
       setPickingIdx(null);
     }

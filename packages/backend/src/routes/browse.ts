@@ -16,15 +16,11 @@ function openNativeFolderPicker(): Promise<string> {
     const os = platform();
 
     if (os === "darwin") {
-      const script = `
-        tell application "Finder"
-          set folderPath to POSIX path of (choose folder)
-        end tell
-        return folderPath
-      `;
+      const script = `POSIX path of (choose folder)`;
       execFile("osascript", ["-e", script], (err, stdout) => {
         if (err) return reject(err);
         const path = stdout.trim().replace(/\/$/, "");
+        if (!path) return reject(new Error("cancelled"));
         resolve(path);
       });
     } else if (os === "win32") {
@@ -35,18 +31,26 @@ function openNativeFolderPicker(): Promise<string> {
         $dialog.ShowNewFolderButton = $true
         if ($dialog.ShowDialog() -eq "OK") {
           $dialog.SelectedPath
-        } else {
-          throw "User cancelled"
         }
       `;
       execFile("powershell.exe", ["-NoProfile", "-Command", ps], (err, stdout) => {
         if (err) return reject(err);
-        resolve(stdout.trim());
+        const path = stdout.trim();
+        if (!path) return reject(new Error("cancelled"));
+        resolve(path);
       });
     } else {
+      // Try zenity (GNOME/GTK), then kdialog (KDE)
       execFile("zenity", ["--file-selection", "--directory"], (err, stdout) => {
-        if (err) return reject(err);
-        resolve(stdout.trim());
+        if (!err && stdout.trim()) {
+          return resolve(stdout.trim());
+        }
+        execFile("kdialog", ["--getexistingdirectory"], (err2, stdout2) => {
+          if (!err2 && stdout2.trim()) {
+            return resolve(stdout2.trim());
+          }
+          reject(new Error("No folder picker available. Install zenity or kdialog."));
+        });
       });
     }
   });
