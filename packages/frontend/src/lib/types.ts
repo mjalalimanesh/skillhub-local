@@ -54,3 +54,36 @@ export interface UserPreferences {
   theme: "light" | "dark" | "system";
   telemetryEnabled: boolean;
 }
+
+export interface MemoryFile {
+  id: string;
+  toolId: string;
+  toolName: string;
+  name: string;
+  path: string;
+  scope: "global" | "project";
+  projectId?: string;
+  projectName?: string;
+  projectRoot?: string;
+  size: number;
+  lastModified: string;
+  preview?: string;
+  readOnly?: boolean;
+}
+
+export interface InstructionFile {
+  id: string;
+  toolId: string;
+  toolName: string;
+  name: string;
+  path: string;
+  scope: "global" | "project";
+  projectId?: string;
+  projectName?: string;
+  projectRoot?: string;
+  size: number;
+  lastModified: string;
+  preview?: string;
+  hasFrontmatter: boolean;
+  readOnly?: boolean;
+}

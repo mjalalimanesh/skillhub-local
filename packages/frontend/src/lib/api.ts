@@ -94,4 +94,40 @@ export const api = {
 
   getInstalledPlugins: () =>
     request<{ plugins: Array<{ id: string; name: string; agentId: string; agentName: string; skillCount: number; skills: Array<{ name: string; path: string; description: string; frontmatter: Record<string, unknown> }>; version?: string; description?: string }> }>("/api/installed-plugins"),
+
+  getMemories: (params?: { tool?: string; scope?: string; project?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.tool) qs.set("tool", params.tool);
+    if (params?.scope) qs.set("scope", params.scope);
+    if (params?.project) qs.set("project", params.project);
+    const q = qs.toString();
+    return request<{ memories: any[]; total: number }>(`/api/memories${q ? `?${q}` : ""}`);
+  },
+
+  getMemoryContent: (path: string) =>
+    request<{ content: string }>(`/api/memories/content?path=${encodeURIComponent(path)}`),
+
+  saveMemoryContent: (path: string, content: string) =>
+    request<{ success: boolean }>("/api/memories/content", {
+      method: "PUT",
+      body: JSON.stringify({ path, content }),
+    }),
+
+  getInstructions: (params?: { tool?: string; scope?: string; project?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.tool) qs.set("tool", params.tool);
+    if (params?.scope) qs.set("scope", params.scope);
+    if (params?.project) qs.set("project", params.project);
+    const q = qs.toString();
+    return request<{ instructions: any[]; total: number }>(`/api/instructions${q ? `?${q}` : ""}`);
+  },
+
+  getInstructionContent: (path: string) =>
+    request<{ content: string }>(`/api/instructions/content?path=${encodeURIComponent(path)}`),
+
+  saveInstructionContent: (path: string, content: string) =>
+    request<{ success: boolean }>("/api/instructions/content", {
+      method: "PUT",
+      body: JSON.stringify({ path, content }),
+    }),
 };

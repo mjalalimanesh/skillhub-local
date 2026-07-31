@@ -9,6 +9,8 @@ import {
   Settings,
   Wifi,
   WifiOff,
+  Brain,
+  FileText,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app";
 import { cn } from "@/lib/utils";
@@ -25,6 +27,13 @@ const sections: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/", icon: LayoutDashboard, label: "Dashboard" },
       { to: "/matrix", icon: Table2, label: "Matrix" },
+    ],
+  },
+  {
+    label: "Context",
+    items: [
+      { to: "/memories", icon: Brain, label: "Memories" },
+      { to: "/instructions", icon: FileText, label: "Instructions" },
     ],
   },
   {

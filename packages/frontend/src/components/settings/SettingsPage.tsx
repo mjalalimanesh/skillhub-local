@@ -1,7 +1,10 @@
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -10,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToastStore } from "@/components/ui/toaster";
+import { Plus, Trash2 } from "lucide-react";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -32,12 +36,35 @@ export default function SettingsPage() {
     },
   });
 
+  const saveProjectDirsMutation = useMutation({
+    mutationFn: (projectDirs: string[]) =>
+      api.saveConfig({
+        ...config,
+        projectDirs,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["config"] });
+      queryClient.invalidateQueries({ queryKey: ["memories"] });
+      queryClient.invalidateQueries({ queryKey: ["instructions"] });
+      addToast({ type: "success", title: "Project directories saved" });
+    },
+  });
+
   const prefs = config?.preferences || {
     defaultScope: "global",
     defaultMethod: "symlink",
     theme: "system",
     telemetryEnabled: false,
   };
+
+  const projectDirs: string[] = config?.projectDirs || [];
+  const [localDirs, setLocalDirs] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (config?.projectDirs) {
+      setLocalDirs(config.projectDirs);
+    }
+  }, [config?.projectDirs]);
 
   return (
     <div className="space-y-6">
@@ -140,6 +167,63 @@ export default function SettingsPage() {
               }`}
             />
           </button>
+        </div>
+      </Card>
+
+      <Card className="p-6 space-y-4 max-w-2xl">
+        <div>
+          <div className="text-sm font-medium text-ink-muted">Project Directories</div>
+          <div className="text-xs text-ink-dim">
+            Root folders to scan for projects. Each immediate subdirectory is treated as a separate project.
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {localDirs.map((dir, idx) => (
+            <div key={idx} className="flex items-center gap-2">
+              <Input
+                value={dir}
+                onChange={(e) => {
+                  const updated = [...localDirs];
+                  updated[idx] = e.target.value;
+                  setLocalDirs(updated);
+                }}
+                placeholder="e.g. D:\\code or ~/repos"
+                className="flex-1"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  const updated = localDirs.filter((_, i) => i !== idx);
+                  setLocalDirs(updated);
+                  saveProjectDirsMutation.mutate(updated);
+                }}
+              >
+                <Trash2 size={14} className="text-danger" />
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setLocalDirs([...localDirs, ""])}
+          >
+            <Plus size={14} />
+            Add Directory
+          </Button>
+          {JSON.stringify(localDirs) !== JSON.stringify(projectDirs) && (
+            <Button
+              size="sm"
+              onClick={() => saveProjectDirsMutation.mutate(localDirs)}
+              disabled={saveProjectDirsMutation.isPending}
+            >
+              Save
+            </Button>
+          )}
         </div>
       </Card>
     </div>

@@ -9,6 +9,8 @@ import agentRoutes from "./routes/agents.js";
 import skillRoutes from "./routes/skills.js";
 import configRoutes from "./routes/config.js";
 import healthRoutes from "./routes/health.js";
+import memoriesRoutes from "./routes/memories.js";
+import instructionsRoutes from "./routes/instructions.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PORT = Number(process.env.PORT) || 3742;
@@ -43,6 +45,8 @@ await app.register(agentRoutes);
 await app.register(skillRoutes);
 await app.register(configRoutes);
 await app.register(healthRoutes);
+await app.register(memoriesRoutes);
+await app.register(instructionsRoutes);
 
 // Serve frontend in production
 if (isProduction) {

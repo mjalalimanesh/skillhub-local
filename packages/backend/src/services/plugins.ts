@@ -18,6 +18,7 @@ export interface PluginConfig {
   version: number;
   plugins: Plugin[];
   preferences: UserPreferences;
+  projectDirs: string[];
 }
 
 const DEFAULT_CONFIG: PluginConfig = {
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG: PluginConfig = {
     theme: "system",
     telemetryEnabled: false,
   },
+  projectDirs: [],
 };
 
 const CONFIG_FILE = "skillhub.config.json";
