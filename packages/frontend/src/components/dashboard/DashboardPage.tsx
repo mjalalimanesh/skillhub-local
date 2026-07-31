@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import {
   Bot,
   Package,
-  TrendingUp,
-  ArrowUpCircle,
+  Brain,
+  FileText,
   CheckCircle2,
   AlertTriangle,
   Download,
@@ -27,21 +27,52 @@ export default function DashboardPage() {
     queryFn: () => api.getSkills(),
   });
 
-  const { data: trending } = useQuery({
-    queryKey: ["trending"],
-    queryFn: api.getTrending,
+  const { data: memoryData } = useQuery({
+    queryKey: ["memories"],
+    queryFn: () => api.getMemories(),
+  });
+
+  const { data: instructionData } = useQuery({
+    queryKey: ["instructions"],
+    queryFn: () => api.getInstructions(),
   });
 
   const progress = useAppStore((s) => s.progress);
   const agents = agentData?.agents || [];
   const skills = skillData?.skills || [];
+  const memories = memoryData?.memories || [];
+  const instructions = instructionData?.instructions || [];
   const detectedAgents = agents.filter((a) => a.detected);
+
+  const recentContext = [
+    ...memories.map((m) => ({
+      type: "memory" as const,
+      id: m.id,
+      name: m.name,
+      tool: m.toolName,
+      lastModified: m.lastModified,
+      to: `/memories/${encodeURIComponent(m.id)}`,
+    })),
+    ...instructions.map((i) => ({
+      type: "instruction" as const,
+      id: i.id,
+      name: i.name,
+      tool: i.toolName,
+      lastModified: i.lastModified,
+      to: `/instructions/${encodeURIComponent(i.id)}`,
+    })),
+  ]
+    .sort(
+      (a, b) =>
+        new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+    )
+    .slice(0, 5);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Overview of your agents, skills, and store activity."
+        description="Overview of your agents and their context."
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -54,47 +85,56 @@ export default function DashboardPage() {
         />
         <StatCard
           icon={<Package size={18} />}
-          label="Total Skills"
+          label="Skills"
           value={skills.length}
           accent="success"
           to="/skills"
         />
         <StatCard
-          icon={<TrendingUp size={18} />}
-          label="Agents Supported"
-          value={agents.length}
+          icon={<Brain size={18} />}
+          label="Memories"
+          value={memories.length}
           accent="warning"
-          to="/agents"
+          to="/memories"
         />
         <StatCard
-          icon={<ArrowUpCircle size={18} />}
-          label="Trending in Store"
-          value={trending?.skills?.length || 0}
+          icon={<FileText size={18} />}
+          label="Instructions"
+          value={instructions.length}
           accent="accent"
-          to="/store"
+          to="/instructions"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="p-5">
           <h2 className="text-sm font-semibold text-ink-muted mb-3">
-            Detected Agents
+            Context by Agent
           </h2>
           <div className="space-y-2">
-            {detectedAgents.map((agent) => (
-              <Link
-                key={agent.id}
-                to={`/skills?agent=${agent.id}`}
-                className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-raised hover:border-accent/50 border border-transparent transition-colors"
-              >
-                <span className="text-sm font-medium text-ink">
-                  {agent.name}
-                </span>
-                <span className="text-xs text-ink-muted">
-                  {agent.skillCount} skills
-                </span>
-              </Link>
-            ))}
+            {detectedAgents.map((agent) => {
+              const memCount = memories.filter(
+                (m) => m.toolId === agent.id
+              ).length;
+              const instCount = instructions.filter(
+                (i) => i.toolId === agent.id
+              ).length;
+              return (
+                <Link
+                  key={agent.id}
+                  to={`/skills?agent=${agent.id}`}
+                  className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-raised hover:border-accent/50 border border-transparent transition-colors"
+                >
+                  <span className="text-sm font-medium text-ink">
+                    {agent.name}
+                  </span>
+                  <span className="text-xs text-ink-muted">
+                    {agent.skillCount} skills · {memCount} memories ·{" "}
+                    {instCount} instructions
+                  </span>
+                </Link>
+              );
+            })}
             {detectedAgents.length === 0 && (
               <p className="text-sm text-ink-dim">No agents detected yet.</p>
             )}
@@ -103,28 +143,38 @@ export default function DashboardPage() {
 
         <Card className="p-5">
           <h2 className="text-sm font-semibold text-ink-muted mb-3">
-            Recent Skills
+            Recent Context Changes
           </h2>
           <div className="space-y-2">
-            {skills.slice(0, 5).map((skill) => (
+            {recentContext.map((item) => (
               <Link
-                key={skill.id}
-                to={`/skills/${skill.name}`}
+                key={item.id}
+                to={item.to}
                 className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-raised hover:border-accent/50 border border-transparent transition-colors"
               >
-                <div>
-                  <span className="text-sm font-medium text-ink">
-                    {skill.name}
+                <div className="flex items-center gap-2 min-w-0">
+                  <Badge
+                    variant={item.type === "memory" ? "accent" : "default"}
+                    className="shrink-0"
+                  >
+                    {item.type}
+                  </Badge>
+                  <span className="text-sm font-medium text-ink truncate">
+                    {item.name}
                   </span>
-                  <span className="text-xs text-ink-dim ml-2">
-                    ({skill.agentId})
+                  <span className="text-xs text-ink-dim shrink-0">
+                    ({item.tool})
                   </span>
                 </div>
-                <span className="text-xs text-ink-muted">{skill.scope}</span>
+                <span className="text-xs text-ink-muted shrink-0 ml-2">
+                  {new Date(item.lastModified).toLocaleDateString()}
+                </span>
               </Link>
             ))}
-            {skills.length === 0 && (
-              <p className="text-sm text-ink-dim">No skills installed yet.</p>
+            {recentContext.length === 0 && (
+              <p className="text-sm text-ink-dim">
+                No memories or instructions found yet.
+              </p>
             )}
           </div>
         </Card>

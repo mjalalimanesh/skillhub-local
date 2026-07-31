@@ -26,21 +26,16 @@ const sections: { label: string; items: NavItem[] }[] = [
     label: "Overview",
     items: [
       { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+      { to: "/agents", icon: Bot, label: "Agents" },
       { to: "/matrix", icon: Table2, label: "Matrix" },
     ],
   },
   {
     label: "Context",
     items: [
+      { to: "/skills", icon: Package, label: "Skills" },
       { to: "/memories", icon: Brain, label: "Memories" },
       { to: "/instructions", icon: FileText, label: "Instructions" },
-    ],
-  },
-  {
-    label: "Manage",
-    items: [
-      { to: "/skills", icon: Package, label: "Skills" },
-      { to: "/agents", icon: Bot, label: "Agents" },
     ],
   },
   {
