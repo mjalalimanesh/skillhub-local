@@ -50,13 +50,13 @@ export default function MatrixPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Agent Matrix"
+        title="Skill Matrix"
         description="Cross-reference of skills across all detected agents."
       />
 
-      <Card className="overflow-x-auto p-0">
+      <Card className="overflow-auto p-0">
         <table className="w-full border-collapse">
-          <thead>
+          <thead className="sticky top-0 z-20 bg-surface">
             <tr>
               <th className="text-left text-sm font-medium text-ink-muted px-4 py-3 border-b border-line sticky left-0 bg-surface z-10">
                 Skill

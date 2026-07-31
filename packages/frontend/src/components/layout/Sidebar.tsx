@@ -27,7 +27,7 @@ const sections: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/", icon: LayoutDashboard, label: "Dashboard" },
       { to: "/agents", icon: Bot, label: "Agents" },
-      { to: "/matrix", icon: Table2, label: "Matrix" },
+      { to: "/matrix", icon: Table2, label: "Skill Matrix" },
     ],
   },
   {
