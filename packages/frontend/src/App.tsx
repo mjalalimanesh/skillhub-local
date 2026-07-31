@@ -11,8 +11,10 @@ import StorePage from "./components/store/StorePage";
 import PluginsPage from "./components/plugins/PluginsPage";
 import SettingsPage from "./components/settings/SettingsPage";
 import MemoriesPage from "./components/memories/MemoriesPage";
+import AgentMemoriesPage from "./components/memories/AgentMemoriesPage";
 import MemoryDetailPage from "./components/memories/MemoryDetailPage";
 import InstructionsPage from "./components/instructions/InstructionsPage";
+import ProjectInstructionsPage from "./components/instructions/ProjectInstructionsPage";
 import InstructionDetailPage from "./components/instructions/InstructionDetailPage";
 import { api } from "./lib/api";
 import { useAppStore } from "./stores/app";
@@ -40,8 +42,10 @@ export default function App() {
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/matrix" element={<MatrixPage />} />
         <Route path="/memories" element={<MemoriesPage />} />
+        <Route path="/memories/agent/:agentId" element={<AgentMemoriesPage />} />
         <Route path="/memories/:memoryId" element={<MemoryDetailPage />} />
         <Route path="/instructions" element={<InstructionsPage />} />
+        <Route path="/instructions/project/:projectId" element={<ProjectInstructionsPage />} />
         <Route path="/instructions/:instructionId" element={<InstructionDetailPage />} />
         <Route path="/store" element={<StorePage />} />
         <Route path="/plugins" element={<PluginsPage />} />

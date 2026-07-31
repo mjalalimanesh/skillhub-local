@@ -21,6 +21,11 @@ export default function MemoryDetailPage() {
     staleTime: Infinity,
   });
 
+  const { data: agentsData } = useQuery({
+    queryKey: ["agents"],
+    queryFn: api.getAgents,
+  });
+
   const memory: MemoryFile | undefined = (memoriesData?.memories || []).find(
     (m) => m.id === decodeURIComponent(memoryId || "")
   );
@@ -67,6 +72,9 @@ export default function MemoryDetailPage() {
     );
   }
 
+  const agent = (agentsData?.agents || []).find((a) => a.id === memory.toolId);
+  const agentName = agent?.name || memory.toolName;
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -74,6 +82,7 @@ export default function MemoryDetailPage() {
         description={memory.toolName}
         breadcrumbs={[
           { label: "Memories", href: "/memories" },
+          { label: agentName, href: `/memories/agent/${encodeURIComponent(memory.toolId)}` },
           { label: memory.name },
         ]}
         actions={

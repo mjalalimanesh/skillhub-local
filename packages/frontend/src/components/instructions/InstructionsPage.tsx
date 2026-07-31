@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -6,18 +5,11 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { FileText, RefreshCw } from "lucide-react";
+import { Folder, RefreshCw, Info } from "lucide-react";
+
+const GLOBAL_KEY = "__global__";
 
 export default function InstructionsPage() {
-  const [filterTool, setFilterTool] = useState<string>("all");
-  const [filterScope, setFilterScope] = useState<string>("all");
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -28,19 +20,29 @@ export default function InstructionsPage() {
 
   const instructions = data?.instructions || [];
 
-  const tools = [...new Set(instructions.map((i) => i.toolId))];
+  const byProject = new Map<string, { projectName: string; instructions: typeof instructions }>();
+  for (const i of instructions) {
+    const key = i.projectId || GLOBAL_KEY;
+    const name = i.projectName || "Global";
+    const existing = byProject.get(key);
+    if (existing) {
+      existing.instructions.push(i);
+    } else {
+      byProject.set(key, { projectName: name, instructions: [i] });
+    }
+  }
 
-  const filtered = instructions.filter((i) => {
-    if (filterTool !== "all" && i.toolId !== filterTool) return false;
-    if (filterScope !== "all" && i.scope !== filterScope) return false;
-    return true;
+  const projects = [...byProject.entries()].sort((a, b) => {
+    if (a[0] === GLOBAL_KEY) return -1;
+    if (b[0] === GLOBAL_KEY) return 1;
+    return a[1].projectName.localeCompare(b[1].projectName);
   });
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Instructions"
-        description={`${instructions.length} instruction files from AI tools.`}
+        description={`${instructions.length} instruction files from ${projects.length} projects.`}
         actions={
           <Button
             variant="secondary"
@@ -53,70 +55,53 @@ export default function InstructionsPage() {
         }
       />
 
-      <div className="flex items-center gap-3">
-        <Select value={filterTool} onValueChange={setFilterTool}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="All Tools" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Tools</SelectItem>
-            {tools.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={filterScope} onValueChange={setFilterScope}>
-          <SelectTrigger className="w-[150px]">
-            <SelectValue placeholder="All Scopes" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Scopes</SelectItem>
-            <SelectItem value="global">Global</SelectItem>
-            <SelectItem value="project">Project</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Card className="flex items-center gap-3 px-4 py-3 bg-accent/5 border-accent/20">
+        <Info size={16} className="text-accent shrink-0" />
+        <p className="text-sm text-ink-muted">
+          Project-scoped instructions are discovered from directories configured in{" "}
+          <Link to="/settings" className="text-accent hover:underline font-medium">
+            Settings
+          </Link>
+          . Add your project directories there to see them listed here.
+        </p>
+      </Card>
 
       {isLoading ? (
         <div className="text-ink-dim">Loading instructions...</div>
+      ) : projects.length === 0 ? (
+        <div className="text-center py-12 text-ink-dim">
+          No instruction files found. Configure project directories in Settings to scan for project-scoped instructions.
+        </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((instruction) => (
-            <Link key={instruction.id} to={`/instructions/${encodeURIComponent(instruction.id)}`}>
+          {projects.map(([projectId, { projectName, instructions: items }]) => (
+            <Link
+              key={projectId}
+              to={`/instructions/project/${encodeURIComponent(projectId)}`}
+            >
               <Card className="flex items-center justify-between px-4 py-3 hover:border-line-strong transition-colors group cursor-pointer">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <FileText size={16} className="text-accent shrink-0" />
+                  <Folder size={16} className="text-accent shrink-0" />
                   <div className="min-w-0">
                     <div className="text-sm font-medium text-ink group-hover:text-accent transition-colors truncate">
-                      {instruction.name}
+                      {projectName}
                     </div>
-                    <div className="text-xs text-ink-dim truncate">{instruction.path}</div>
+                    {projectId !== GLOBAL_KEY && (
+                      <div className="text-xs text-ink-dim truncate">{projectId}</div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-3 ml-3 shrink-0">
-                  <Badge variant="default">{instruction.toolName}</Badge>
-                  <Badge variant={instruction.scope === "global" ? "accent" : "success"}>
-                    {instruction.scope}
+                  <Badge variant="default">
+                    {items.length} {items.length === 1 ? "instruction" : "instructions"}
                   </Badge>
-                  {instruction.projectName && (
-                    <span className="text-xs text-ink-dim">{instruction.projectName}</span>
-                  )}
-                  {instruction.hasFrontmatter && (
+                  {items.some((i) => i.hasFrontmatter) && (
                     <Badge variant="default">frontmatter</Badge>
                   )}
-                  <span className="text-xs text-ink-dim">
-                    {(instruction.size / 1024).toFixed(1)}KB
-                  </span>
                 </div>
               </Card>
             </Link>
           ))}
-          {filtered.length === 0 && (
-            <div className="text-center py-12 text-ink-dim">
-              No instruction files found. Configure project directories in Settings to scan for project-scoped instructions.
-            </div>
-          )}
         </div>
       )}
     </div>

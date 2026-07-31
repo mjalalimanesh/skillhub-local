@@ -67,6 +67,9 @@ export default function InstructionDetailPage() {
     );
   }
 
+  const projectName = instruction.projectName || "Global";
+  const projectId = instruction.projectId || "__global__";
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -74,6 +77,7 @@ export default function InstructionDetailPage() {
         description={instruction.toolName}
         breadcrumbs={[
           { label: "Instructions", href: "/instructions" },
+          { label: projectName, href: `/instructions/project/${encodeURIComponent(projectId)}` },
           { label: instruction.name },
         ]}
         actions={
