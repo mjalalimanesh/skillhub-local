@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Folder, RefreshCw, Info } from "lucide-react";
+import { Folder, Globe, RefreshCw, Info } from "lucide-react";
 
 const GLOBAL_KEY = "__global__";
 
@@ -74,34 +74,50 @@ export default function InstructionsPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {projects.map(([projectId, { projectName, instructions: items }]) => (
-            <Link
-              key={projectId}
-              to={`/instructions/project/${encodeURIComponent(projectId)}`}
-            >
-              <Card className="flex items-center justify-between px-4 py-3 hover:border-line-strong transition-colors group cursor-pointer">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <Folder size={16} className="text-accent shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-ink group-hover:text-accent transition-colors truncate">
-                      {projectName}
+          {projects.map(([projectId, { projectName, instructions: items }]) => {
+            const isGlobal = projectId === GLOBAL_KEY;
+            return (
+              <Link
+                key={projectId}
+                to={`/instructions/project/${encodeURIComponent(projectId)}`}
+              >
+                <Card
+                  className={`flex items-center justify-between px-4 py-3 hover:border-line-strong transition-colors group cursor-pointer ${
+                    isGlobal
+                      ? "bg-accent/5 border-accent/20"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {isGlobal ? (
+                      <Globe size={16} className="text-accent shrink-0" />
+                    ) : (
+                      <Folder size={16} className="text-accent shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-ink group-hover:text-accent transition-colors truncate">
+                        {projectName}
+                      </div>
+                      {!isGlobal && (
+                        <div className="text-xs text-ink-dim truncate">{projectId}</div>
+                      )}
                     </div>
-                    {projectId !== GLOBAL_KEY && (
-                      <div className="text-xs text-ink-dim truncate">{projectId}</div>
+                  </div>
+                  <div className="flex items-center gap-3 ml-3 shrink-0">
+                    {isGlobal && (
+                      <Badge variant="accent">Global</Badge>
+                    )}
+                    <Badge variant="default">
+                      {items.length} {items.length === 1 ? "instruction" : "instructions"}
+                    </Badge>
+                    {items.some((i) => i.hasFrontmatter) && (
+                      <Badge variant="default">frontmatter</Badge>
                     )}
                   </div>
-                </div>
-                <div className="flex items-center gap-3 ml-3 shrink-0">
-                  <Badge variant="default">
-                    {items.length} {items.length === 1 ? "instruction" : "instructions"}
-                  </Badge>
-                  {items.some((i) => i.hasFrontmatter) && (
-                    <Badge variant="default">frontmatter</Badge>
-                  )}
-                </div>
-              </Card>
-            </Link>
-          ))}
+                </Card>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
