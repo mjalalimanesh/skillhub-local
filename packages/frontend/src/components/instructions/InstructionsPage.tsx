@@ -73,13 +73,14 @@ export default function InstructionsPage() {
           No instruction files found. Configure project directories in Settings to scan for project-scoped instructions.
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {projects.map(([projectId, { projectName, instructions: items }]) => {
             const isGlobal = projectId === GLOBAL_KEY;
             return (
               <Link
                 key={projectId}
                 to={`/instructions/project/${encodeURIComponent(projectId)}`}
+                className="block"
               >
                 <Card className="flex items-center justify-between px-4 py-3 hover:border-line-strong transition-colors group cursor-pointer">
                   <div className="flex items-center gap-3 flex-1 min-w-0">

@@ -83,7 +83,7 @@ export default function ProjectInstructionsPage() {
 
 function InstructionRow({ instruction }: { instruction: InstructionFile }) {
   return (
-    <a href={`/instructions/${encodeURIComponent(instruction.id)}`}>
+    <a href={`/instructions/${encodeURIComponent(instruction.id)}`} className="block">
       <Card className="flex items-center justify-between px-4 py-3 hover:border-line-strong transition-colors group cursor-pointer">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <FileText size={16} className="text-accent shrink-0" />

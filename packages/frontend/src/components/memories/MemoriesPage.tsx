@@ -61,6 +61,7 @@ export default function MemoriesPage() {
             <Link
               key={agentId}
               to={`/memories/agent/${encodeURIComponent(agentId)}`}
+              className="block"
             >
               <Card className="flex items-center justify-between px-4 py-3 hover:border-line-strong transition-colors group cursor-pointer">
                 <div className="flex items-center gap-3 flex-1 min-w-0">
