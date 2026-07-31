@@ -73,7 +73,7 @@ export default function InstructionsPage() {
           No instruction files found. Configure project directories in Settings to scan for project-scoped instructions.
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {projects.map(([projectId, { projectName, instructions: items }]) => {
             const isGlobal = projectId === GLOBAL_KEY;
             return (
