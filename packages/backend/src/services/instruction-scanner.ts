@@ -2,6 +2,7 @@ import { readFile, stat, access, readdir, writeFile } from "node:fs/promises";
 import { join, resolve, normalize, relative } from "node:path";
 import { expandHome } from "./scanner.js";
 import { discoverProjects } from "./projects.js";
+import type { ProjectRoot } from "./projects.js";
 import { loadConfig } from "./plugins.js";
 import { getTrustedDirs } from "./trusted-dirs.js";
 
@@ -27,6 +28,7 @@ interface InstructionSource {
   toolName: string;
   paths: string[];
   scope: "global" | "project";
+  homeProjects?: boolean;
 }
 
 const INSTRUCTION_SOURCES: InstructionSource[] = [
@@ -47,6 +49,13 @@ const INSTRUCTION_SOURCES: InstructionSource[] = [
     toolName: "Cursor",
     paths: [".cursorrules", ".cursor/rules/*.md"],
     scope: "project",
+  },
+  {
+    toolId: "cursor",
+    toolName: "Cursor",
+    paths: ["~/.cursor/projects/*/rules/*.md"],
+    scope: "project",
+    homeProjects: true,
   },
   {
     toolId: "copilot",
@@ -135,6 +144,35 @@ const INSTRUCTION_SOURCES: InstructionSource[] = [
 ];
 
 const MAX_FILES = 5000;
+
+// Cursor stores per-project rules under ~/.cursor/projects/<encoded-path>/rules/,
+// where the folder name encodes the project path: drive colon is dropped,
+// path separators and "~" become "-", and the result is lowercased.
+// Encoding is ambiguous to reverse (a "-" may come from a separator or the
+// folder name itself), so matching runs encode-first.
+function encodeCursorProjectPath(p: string): string {
+  return expandHome(p).replace(":", "").replace(/[\\~]/g, "-").toLowerCase();
+}
+
+async function decodeCursorProjectPath(encoded: string): Promise<string> {
+  const drive = encoded.charAt(0).toUpperCase();
+  const rest = encoded.slice(1);
+  const segments = rest.split("-");
+
+  const candidates: string[] = [];
+  candidates.push(`${drive}:\\${rest}`);
+  for (let i = 1; i < segments.length; i++) {
+    candidates.push(
+      `${drive}:\\${segments.slice(0, i).join("\\")}\\${segments.slice(i).join("-")}`
+    );
+  }
+  candidates.push(`${drive}:\\${segments.join("\\")}`);
+
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) return candidate;
+  }
+  return candidates[0];
+}
 
 async function pathExists(p: string): Promise<boolean> {
   try {
@@ -231,6 +269,7 @@ async function expandGlobPattern(pattern: string): Promise<string[]> {
         files.push(...subFiles);
       }
     } else {
+      if (suffix && !entry.name.endsWith(suffix)) continue;
       files.push(childPath);
     }
   }
@@ -279,34 +318,94 @@ export async function scanInstructions(projectDirs: string[]): Promise<Instructi
         }
       }
     } else {
-      for (const proj of projects) {
+      if (src.homeProjects) {
+        const encodedToProject = new Map<string, ProjectRoot>();
+        for (const proj of projects) {
+          encodedToProject.set(encodeCursorProjectPath(proj.path), proj);
+        }
+
         for (const pattern of src.paths) {
-          const absPattern = join(proj.path, pattern);
-          const files = await expandGlobPattern(absPattern);
+          const files = await expandGlobPattern(pattern);
           for (const filePath of files) {
             try {
               const s = await stat(filePath);
               const preview = await readPreview(filePath);
               const hasFrontmatter = await detectFrontmatter(filePath);
-              results.push({
-                id: `${src.toolId}::project::${proj.id}::${relative(proj.path, filePath)}`,
-                toolId: src.toolId,
-                toolName: src.toolName,
-                name: filePath.split(/[\\/]/).pop() || filePath,
-                path: filePath,
-                scope: "project",
-                projectId: proj.id,
-                projectName: proj.name,
-                projectRoot: proj.path,
-                size: s.size,
-                lastModified: s.mtime.toISOString(),
-                preview,
-                hasFrontmatter,
-              });
+              const segments = filePath.split(/[\\/]/);
+              const rulesIdx = segments.lastIndexOf("rules");
+              const encodedName = rulesIdx > 0 ? segments[rulesIdx - 1] : "";
+              const project = encodedToProject.get(encodedName.toLowerCase());
+
+              if (project) {
+                results.push({
+                  id: `${src.toolId}::project::${project.id}::${relative(project.path, filePath)}`,
+                  toolId: src.toolId,
+                  toolName: src.toolName,
+                  name: filePath.split(/[\\/]/).pop() || filePath,
+                  path: filePath,
+                  scope: "project",
+                  projectId: project.id,
+                  projectName: project.name,
+                  projectRoot: project.path,
+                  size: s.size,
+                  lastModified: s.mtime.toISOString(),
+                  preview,
+                  hasFrontmatter,
+                });
+              } else {
+                const decoded = await decodeCursorProjectPath(encodedName);
+                const relName = rulesIdx > 0 ? segments.slice(rulesIdx).join("/") : filePath;
+                results.push({
+                  id: `${src.toolId}::project::home::${encodedName}::${relName}`,
+                  toolId: src.toolId,
+                  toolName: src.toolName,
+                  name: filePath.split(/[\\/]/).pop() || filePath,
+                  path: filePath,
+                  scope: "project",
+                  projectId: `home::${encodedName}`,
+                  projectName: decoded,
+                  size: s.size,
+                  lastModified: s.mtime.toISOString(),
+                  preview,
+                  hasFrontmatter,
+                });
+              }
             } catch {
               // skip
             }
             if (results.length >= MAX_FILES) return results;
+          }
+        }
+      } else {
+        for (const proj of projects) {
+          for (const pattern of src.paths) {
+            const absPattern = join(proj.path, pattern);
+            const files = await expandGlobPattern(absPattern);
+            for (const filePath of files) {
+              try {
+                const s = await stat(filePath);
+                const preview = await readPreview(filePath);
+                const hasFrontmatter = await detectFrontmatter(filePath);
+                results.push({
+                  id: `${src.toolId}::project::${proj.id}::${relative(proj.path, filePath)}`,
+                  toolId: src.toolId,
+                  toolName: src.toolName,
+                  name: filePath.split(/[\\/]/).pop() || filePath,
+                  path: filePath,
+                  scope: "project",
+                  projectId: proj.id,
+                  projectName: proj.name,
+                  projectRoot: proj.path,
+                  size: s.size,
+                  lastModified: s.mtime.toISOString(),
+                  preview,
+                  hasFrontmatter,
+                });
+              } catch {
+                // skip
+              }
+              if (results.length >= MAX_FILES) return results;
+            }
           }
         }
       }

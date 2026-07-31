@@ -165,6 +165,7 @@ async function expandGlobPattern(pattern: string): Promise<string[]> {
         files.push(...subFiles);
       }
     } else {
+      if (suffix && !entry.name.endsWith(suffix)) continue;
       files.push(childPath);
     }
   }
