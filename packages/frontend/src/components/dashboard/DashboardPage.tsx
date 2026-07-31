@@ -144,8 +144,7 @@ export default function DashboardPage() {
                   </span>
                   <span className="text-xs text-ink-muted">
                     {agent.skillCount} skills · {memCount} memories ·{" "}
-                    {instCount} instructions
-                    {agent.mcpCount > 0 && <> · {agent.mcpCount} MCP</>}
+                    {instCount} instructions · {agent.mcpCount} MCP
                   </span>
                 </Link>
               );
