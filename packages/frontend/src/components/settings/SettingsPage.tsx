@@ -57,7 +57,6 @@ export default function SettingsPage() {
     telemetryEnabled: false,
   };
 
-  const projectDirs: string[] = config?.projectDirs || [];
   const [localDirs, setLocalDirs] = useState<string[]>([]);
   const [pickingIdx, setPickingIdx] = useState<number | null>(null);
 
@@ -74,6 +73,7 @@ export default function SettingsPage() {
       const updated = [...localDirs];
       updated[idx] = result.path;
       setLocalDirs(updated);
+      saveProjectDirsMutation.mutate(updated);
     } catch {
       // user cancelled
     } finally {
@@ -203,6 +203,7 @@ export default function SettingsPage() {
                   updated[idx] = e.target.value;
                   setLocalDirs(updated);
                 }}
+                onBlur={() => saveProjectDirsMutation.mutate(localDirs)}
                 placeholder="e.g. D:\\code or ~/repos"
                 className="flex-1"
               />
@@ -243,15 +244,6 @@ export default function SettingsPage() {
             <Plus size={14} />
             Add Directory
           </Button>
-          {JSON.stringify(localDirs) !== JSON.stringify(projectDirs) && (
-            <Button
-              size="sm"
-              onClick={() => saveProjectDirsMutation.mutate(localDirs)}
-              disabled={saveProjectDirsMutation.isPending}
-            >
-              Save
-            </Button>
-          )}
         </div>
       </Card>
     </div>
