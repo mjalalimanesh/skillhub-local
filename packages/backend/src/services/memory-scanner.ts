@@ -4,6 +4,7 @@ import { join, resolve, normalize, relative } from "node:path";
 import { expandHome } from "./scanner.js";
 import { discoverProjects } from "./projects.js";
 import { loadConfig } from "./plugins.js";
+import { getTrustedDirs } from "./trusted-dirs.js";
 
 export interface MemoryFile {
   id: string;
@@ -101,6 +102,32 @@ async function getAllowedRoots(projectDirs: string[]): Promise<string[]> {
     }
   }
   const projects = await discoverProjects(projectDirs);
+  for (const proj of projects) {
+    roots.push(proj.path);
+  }
+  return roots;
+}
+
+// Write access is intentionally narrower than read access: only the fixed
+// global memory paths and directories the user explicitly confirmed via the
+// folder picker (never projectDirs from a bare config PUT).
+async function getAllowedWriteRoots(): Promise<string[]> {
+  const roots: string[] = [];
+  for (const src of MEMORY_SOURCES) {
+    if (src.scope !== "global") continue;
+    for (const p of src.paths) {
+      const base = p.split("*")[0];
+      const expanded = expandHome(base);
+      if (p.includes("*")) {
+        if (await pathExists(expanded)) roots.push(expanded);
+      } else {
+        roots.push(expanded);
+      }
+    }
+  }
+  const trusted = await getTrustedDirs();
+  roots.push(...trusted);
+  const projects = await discoverProjects(trusted);
   for (const proj of projects) {
     roots.push(proj.path);
   }
@@ -245,8 +272,7 @@ export async function readMemoryContent(filePath: string): Promise<string> {
 }
 
 export async function writeMemoryContent(filePath: string, content: string): Promise<void> {
-  const config = await loadConfig();
-  const allowedRoots = await getAllowedRoots(config.projectDirs || []);
+  const allowedRoots = await getAllowedWriteRoots();
   if (!validatePath(filePath, allowedRoots)) {
     throw new Error("Path outside allowed roots");
   }

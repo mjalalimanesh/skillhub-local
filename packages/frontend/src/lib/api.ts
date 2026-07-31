@@ -1,11 +1,42 @@
 const BASE = "";
 
+let authToken: string | null = null;
+
+export function setAuthToken(token: string) {
+  authToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+export async function initAuth(): Promise<void> {
+  try {
+    const { token } = await request<{ token: string }>("/api/auth/token");
+    setAuthToken(token);
+  } catch (err) {
+    console.warn("Failed to fetch auth token", err);
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  if (authToken) {
+    headers["x-skillhub-token"] = authToken;
+  }
+  const res = await fetch(`${BASE}${path}`, { ...options, headers });
   if (!res.ok) {
+    if (
+      res.status === 401 &&
+      !authToken &&
+      path !== "/api/auth/token"
+    ) {
+      await initAuth();
+      if (authToken) return request(path, options);
+    }
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || res.statusText);
   }

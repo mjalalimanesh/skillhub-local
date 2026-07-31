@@ -7,6 +7,7 @@ import {
   updatePreferences,
 } from "../services/plugins.js";
 import { detectInstalledPlugins } from "../services/installed-plugins.js";
+import { reconcileTrustedDirs } from "../services/trusted-dirs.js";
 
 export default async function configRoutes(app: FastifyInstance) {
   app.get("/api/config", async () => {
@@ -18,6 +19,9 @@ export default async function configRoutes(app: FastifyInstance) {
     const config = await loadConfig();
     const merged = { ...config, ...body };
     await saveConfig(merged);
+    await reconcileTrustedDirs(
+      Array.isArray(merged.projectDirs) ? merged.projectDirs : []
+    );
     return merged;
   });
 

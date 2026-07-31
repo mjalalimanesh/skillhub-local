@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/stores/app";
+import { getAuthToken } from "@/lib/api";
 import type { WSProgressEvent } from "@/lib/types";
 
 export function useWebSocket() {
@@ -11,9 +12,16 @@ export function useWebSocket() {
     let unmounted = false;
 
     function connect() {
+      const token = getAuthToken();
+      if (!token) {
+        reconnectTimer.current = setTimeout(connect, 1000);
+        return;
+      }
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.host;
-      const ws = new WebSocket(`${protocol}//${host}/ws`);
+      const ws = new WebSocket(
+        `${protocol}//${host}/ws?token=${encodeURIComponent(token)}`
+      );
       wsRef.current = ws;
 
       ws.onopen = () => setWsConnected(true);

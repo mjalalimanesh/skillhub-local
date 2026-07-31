@@ -197,6 +197,9 @@ export default function SettingsPage() {
           <div className="text-xs text-ink-dim">
             Root folders to scan for projects. Each immediate subdirectory is treated as a separate project.
           </div>
+          <div className="text-xs text-ink-dim mt-1">
+            Saved directories are trusted for editing instructions and memories.
+          </div>
         </div>
 
         <div className="space-y-2">
