@@ -13,7 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToastStore } from "@/components/ui/toaster";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, FolderOpen } from "lucide-react";
+import { DirectoryBrowserDialog } from "./DirectoryBrowserDialog";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -59,6 +60,7 @@ export default function SettingsPage() {
 
   const projectDirs: string[] = config?.projectDirs || [];
   const [localDirs, setLocalDirs] = useState<string[]>([]);
+  const [browseIdx, setBrowseIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (config?.projectDirs) {
@@ -194,6 +196,14 @@ export default function SettingsPage() {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => setBrowseIdx(idx)}
+                title="Browse"
+              >
+                <FolderOpen size={14} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => {
                   const updated = localDirs.filter((_, i) => i !== idx);
                   setLocalDirs(updated);
@@ -226,6 +236,22 @@ export default function SettingsPage() {
           )}
         </div>
       </Card>
+
+      <DirectoryBrowserDialog
+        open={browseIdx !== null}
+        onOpenChange={(open) => {
+          if (!open) setBrowseIdx(null);
+        }}
+        initialPath={browseIdx !== null ? localDirs[browseIdx] || "~" : "~"}
+        onSelect={(path) => {
+          if (browseIdx !== null) {
+            const updated = [...localDirs];
+            updated[browseIdx] = path;
+            setLocalDirs(updated);
+          }
+          setBrowseIdx(null);
+        }}
+      />
     </div>
   );
 }

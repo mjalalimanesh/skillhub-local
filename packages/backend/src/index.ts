@@ -11,6 +11,7 @@ import configRoutes from "./routes/config.js";
 import healthRoutes from "./routes/health.js";
 import memoriesRoutes from "./routes/memories.js";
 import instructionsRoutes from "./routes/instructions.js";
+import browseRoutes from "./routes/browse.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PORT = Number(process.env.PORT) || 3742;
@@ -47,6 +48,7 @@ await app.register(configRoutes);
 await app.register(healthRoutes);
 await app.register(memoriesRoutes);
 await app.register(instructionsRoutes);
+await app.register(browseRoutes);
 
 // Serve frontend in production
 if (isProduction) {

@@ -83,6 +83,11 @@ export const api = {
       body: JSON.stringify(config),
     }),
 
+  browse: (path: string) =>
+    request<{ path: string; parent: string; directories: string[] }>(
+      `/api/browse?path=${encodeURIComponent(path)}`
+    ),
+
   addPlugin: (plugin: any) =>
     request<any>("/api/plugins", {
       method: "POST",
