@@ -13,8 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToastStore } from "@/components/ui/toaster";
-import { Plus, Trash2, FolderOpen } from "lucide-react";
-import { DirectoryBrowserDialog } from "./DirectoryBrowserDialog";
+import { Plus, Trash2, FolderOpen, Loader2 } from "lucide-react";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -60,13 +59,27 @@ export default function SettingsPage() {
 
   const projectDirs: string[] = config?.projectDirs || [];
   const [localDirs, setLocalDirs] = useState<string[]>([]);
-  const [browseIdx, setBrowseIdx] = useState<number | null>(null);
+  const [pickingIdx, setPickingIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (config?.projectDirs) {
       setLocalDirs(config.projectDirs);
     }
   }, [config?.projectDirs]);
+
+  const handleNativePick = async (idx: number) => {
+    setPickingIdx(idx);
+    try {
+      const result = await api.pickFolder();
+      const updated = [...localDirs];
+      updated[idx] = result.path;
+      setLocalDirs(updated);
+    } catch {
+      // user cancelled
+    } finally {
+      setPickingIdx(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -196,10 +209,15 @@ export default function SettingsPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setBrowseIdx(idx)}
+                onClick={() => handleNativePick(idx)}
+                disabled={pickingIdx === idx}
                 title="Browse"
               >
-                <FolderOpen size={14} />
+                {pickingIdx === idx ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <FolderOpen size={14} />
+                )}
               </Button>
               <Button
                 variant="ghost"
@@ -236,22 +254,6 @@ export default function SettingsPage() {
           )}
         </div>
       </Card>
-
-      <DirectoryBrowserDialog
-        open={browseIdx !== null}
-        onOpenChange={(open) => {
-          if (!open) setBrowseIdx(null);
-        }}
-        initialPath={browseIdx !== null ? localDirs[browseIdx] || "~" : "~"}
-        onSelect={(path) => {
-          if (browseIdx !== null) {
-            const updated = [...localDirs];
-            updated[browseIdx] = path;
-            setLocalDirs(updated);
-          }
-          setBrowseIdx(null);
-        }}
-      />
     </div>
   );
 }
