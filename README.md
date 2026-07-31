@@ -103,33 +103,4 @@ packages/
         └── services/      # Scanner, CLI executor, store API, plugins, memory-scanner, instruction-scanner
 ```
 
-## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Liveness check |
-| GET | `/api/agents` | List detected agents with skill/plugin counts |
-| GET | `/api/agents/:id/skills` | Skills for a specific agent |
-| GET | `/api/agents/:id/skills/:name` | Single skill detail + SKILL.md content |
-| GET | `/api/skills` | List all skills (filterable by `?agent=` and `?scope=`) |
-| POST | `/api/skills/install` | Install a skill (WebSocket progress) |
-| POST | `/api/skills/remove` | Remove a skill |
-| POST | `/api/skills/update` | Update skills |
-| POST | `/api/skills/copy` | Copy/symlink skill to target agents |
-| GET | `/api/skills/search?q=` | Search skills.sh registry |
-| GET | `/api/skills/trending` | Trending skills |
-| GET | `/api/skills/curated` | Curated skills from skills.sh |
-| GET | `/api/memories` | List memory files (filterable by `?tool=`, `?scope=`, `?project=`) |
-| GET | `/api/memories/content?path=` | Read memory file content |
-| PUT | `/api/memories/content` | Save memory edits |
-| GET | `/api/instructions` | List instruction files (filterable by `?tool=`, `?scope=`, `?project=`) |
-| GET | `/api/instructions/content?path=` | Read instruction file content |
-| PUT | `/api/instructions/content` | Save instruction edits |
-| GET | `/api/browse?path=` | List subdirectories at path |
-| GET | `/api/browse/pick` | Open native OS folder picker |
-| GET | `/api/config` | Load config (plugins + preferences + project dirs) |
-| PUT | `/api/config` | Save config |
-| POST | `/api/plugins` | Add custom plugin |
-| DELETE | `/api/plugins/:type/:name` | Remove custom plugin |
-| PUT | `/api/preferences` | Update user preferences |
-| GET | `/api/installed-plugins` | Detect plugins on disk |
