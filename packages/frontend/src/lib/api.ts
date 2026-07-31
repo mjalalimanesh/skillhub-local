@@ -47,7 +47,7 @@ export const api = {
   health: () => request<{ status: string }>("/api/health"),
 
   getAgents: () =>
-    request<{ agents: Array<{ id: string; name: string; detected: boolean; skillCount: number; pluginCount: number; icon: string }> }>("/api/agents"),
+    request<{ agents: Array<{ id: string; name: string; detected: boolean; skillCount: number; pluginCount: number; mcpCount: number; icon: string }> }>("/api/agents"),
 
   getAgentSkills: (agentId: string) =>
     request<{ agent: any; skills: any[] }>(`/api/agents/${agentId}/skills`),
@@ -132,6 +132,11 @@ export const api = {
 
   getInstalledPlugins: () =>
     request<{ plugins: Array<{ id: string; name: string; agentId: string; agentName: string; skillCount: number; skills: Array<{ name: string; path: string; description: string; frontmatter: Record<string, unknown> }>; version?: string; description?: string }> }>("/api/installed-plugins"),
+
+  getMcpServers: (agent?: string) => {
+    const qs = agent ? `?agent=${encodeURIComponent(agent)}` : "";
+    return request<{ servers: Array<{ id: string; name: string; agentId: string; agentName: string; scope: string; projectId?: string; projectName?: string; sourceFile: string; transport: string; command?: string; args?: string[]; url?: string; type?: string; enabled?: boolean; raw: Record<string, unknown> }>; total: number }>(`/api/mcp${qs}`);
+  },
 
   getMemories: (params?: { tool?: string; scope?: string; project?: string }) => {
     const qs = new URLSearchParams();

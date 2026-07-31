@@ -4,6 +4,7 @@ export interface Agent {
   detected: boolean;
   skillCount: number;
   pluginCount: number;
+  mcpCount: number;
   icon: string;
 }
 

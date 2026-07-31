@@ -16,6 +16,7 @@
     "fastify": "^5.3.3",
     "gray-matter": "^4.0.3",
     "marked": "^15.0.8",
+    "smol-toml": "^1.7.1",
     "ws": "^8.18.2"
   },
   "devDependencies": {

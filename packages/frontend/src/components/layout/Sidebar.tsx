@@ -11,6 +11,7 @@ import {
   WifiOff,
   Brain,
   FileText,
+  Cable,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ const sections: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/store", icon: Store, label: "Store" },
       { to: "/plugins", icon: Puzzle, label: "Plugins" },
+      { to: "/mcp", icon: Cable, label: "MCP Servers" },
       { to: "/settings", icon: Settings, label: "Settings" },
     ],
   },

@@ -3,6 +3,8 @@ import { join, resolve } from "node:path";
 import { homedir, platform } from "node:os";
 import matter from "gray-matter";
 import { detectInstalledPlugins } from "./installed-plugins.js";
+import { detectMcpServers } from "./mcp-scanner.js";
+import { loadConfig } from "./plugins.js";
 
 interface AgentDef {
   id: string;
@@ -134,6 +136,7 @@ export interface DetectedAgent {
   detected: boolean;
   skillCount: number;
   pluginCount: number;
+  mcpCount: number;
   icon: string;
   builtInNote?: string;
 }
@@ -156,6 +159,8 @@ export interface InstalledSkill {
 export async function detectAgents(): Promise<DetectedAgent[]> {
   const results: DetectedAgent[] = [];
   const allPlugins = await detectInstalledPlugins();
+  const config = await loadConfig();
+  const allMcpServers = await detectMcpServers(config.projectDirs || []);
 
   for (const agent of AGENT_DEFINITIONS) {
     const globalDir = expandHome(agent.globalDir);
@@ -183,6 +188,9 @@ export async function detectAgents(): Promise<DetectedAgent[]> {
     const pluginSkillCount = agentPlugins.reduce((sum, p) => sum + p.skillCount, 0);
     skillCount += pluginSkillCount;
 
+    // Count MCP servers configured for this agent
+    const mcpCount = allMcpServers.filter((s) => s.agentId === agent.id).length;
+
     results.push({
       id: agent.id,
       name: agent.name,
@@ -191,6 +199,7 @@ export async function detectAgents(): Promise<DetectedAgent[]> {
       detected,
       skillCount,
       pluginCount: agentPlugins.length,
+      mcpCount,
       icon: agent.icon,
       builtInNote: agent.builtInNote,
     });

@@ -16,6 +16,7 @@ import memoriesRoutes from "./routes/memories.js";
 import instructionsRoutes from "./routes/instructions.js";
 import browseRoutes from "./routes/browse.js";
 import authRoutes from "./routes/auth.js";
+import mcpRoutes from "./routes/mcp.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PORT = Number(process.env.PORT) || 3742;
@@ -73,6 +74,7 @@ await app.register(memoriesRoutes);
 await app.register(instructionsRoutes);
 await app.register(browseRoutes);
 await app.register(authRoutes);
+await app.register(mcpRoutes);
 
 // Serve frontend in production
 if (isProduction) {

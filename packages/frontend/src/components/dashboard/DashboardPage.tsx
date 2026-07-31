@@ -10,6 +10,7 @@ import {
   Package,
   Brain,
   FileText,
+  Cable,
   CheckCircle2,
   AlertTriangle,
   Download,
@@ -37,11 +38,17 @@ export default function DashboardPage() {
     queryFn: () => api.getInstructions(),
   });
 
+  const { data: mcpData } = useQuery({
+    queryKey: ["mcp", "all"],
+    queryFn: () => api.getMcpServers(),
+  });
+
   const progress = useAppStore((s) => s.progress);
   const agents = agentData?.agents || [];
   const skills = skillData?.skills || [];
   const memories = memoryData?.memories || [];
   const instructions = instructionData?.instructions || [];
+  const mcpServers = mcpData?.servers || [];
   const detectedAgents = agents.filter((a) => a.detected);
 
   const recentContext = [
@@ -75,7 +82,7 @@ export default function DashboardPage() {
         description="Overview of your agents and their context."
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         <StatCard
           icon={<Bot size={18} />}
           label="Agents Detected"
@@ -91,10 +98,17 @@ export default function DashboardPage() {
           to="/skills"
         />
         <StatCard
+          icon={<Cable size={18} />}
+          label="MCP Servers"
+          value={mcpServers.length}
+          accent="warning"
+          to="/mcp"
+        />
+        <StatCard
           icon={<Brain size={18} />}
           label="Memories"
           value={memories.length}
-          accent="warning"
+          accent="accent"
           to="/memories"
         />
         <StatCard
@@ -131,6 +145,7 @@ export default function DashboardPage() {
                   <span className="text-xs text-ink-muted">
                     {agent.skillCount} skills · {memCount} memories ·{" "}
                     {instCount} instructions
+                    {agent.mcpCount > 0 && <> · {agent.mcpCount} MCP</>}
                   </span>
                 </Link>
               );
