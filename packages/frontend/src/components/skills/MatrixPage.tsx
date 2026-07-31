@@ -69,7 +69,6 @@ export default function MatrixPage() {
                   {agent.name}
                 </th>
               ))}
-              <th className="px-4 py-3 border-b border-line w-10 bg-surface" />
             </tr>
           </thead>
           <tbody>
@@ -87,12 +86,31 @@ export default function MatrixPage() {
                   className="hover:bg-raised/50 transition-colors"
                 >
                   <td className="text-sm px-4 py-2.5 border-b border-line/50 sticky left-0 bg-surface z-10">
-                    <Link
-                      to={`/skills/${skillName}`}
-                      className="text-ink hover:text-accent transition-colors"
-                    >
-                      {skillName}
-                    </Link>
+                    <div className="flex items-center gap-1">
+                      <Link
+                        to={`/skills/${skillName}`}
+                        className="text-ink hover:text-accent transition-colors"
+                      >
+                        {skillName}
+                      </Link>
+                      {missingCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          title={`Copy to ${missingCount} other agent${missingCount !== 1 ? "s" : ""}`}
+                          onClick={() =>
+                            setCopySkill({
+                              path: skillPath,
+                              name: skillName,
+                              agent: sourceAgent,
+                            })
+                          }
+                        >
+                          <Copy size={12} />
+                        </Button>
+                      )}
+                    </div>
                   </td>
                   {agents.map((agent) => {
                     const installed = installedIn.has(agent.id);
@@ -113,31 +131,13 @@ export default function MatrixPage() {
                       </td>
                     );
                   })}
-                  <td className="px-4 py-2.5 border-b border-line/50">
-                    {missingCount > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title={`Copy to ${missingCount} other agent${missingCount !== 1 ? "s" : ""}`}
-                        onClick={() =>
-                          setCopySkill({
-                            path: skillPath,
-                            name: skillName,
-                            agent: sourceAgent,
-                          })
-                        }
-                      >
-                        <Copy size={14} />
-                      </Button>
-                    )}
-                  </td>
                 </tr>
               );
             })}
             {skillNames.length === 0 && (
               <tr>
                 <td
-                  colSpan={agents.length + 2}
+                  colSpan={agents.length + 1}
                   className="text-center py-12 text-ink-dim"
                 >
                   No skills installed across any agent.
