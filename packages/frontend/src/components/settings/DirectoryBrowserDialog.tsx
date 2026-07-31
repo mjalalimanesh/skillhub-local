@@ -10,7 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FolderOpen, Folder, ChevronRight, Loader2 } from "lucide-react";
+import {
+  FolderOpen,
+  Folder,
+  ChevronRight,
+  Loader2,
+  Monitor,
+} from "lucide-react";
 
 interface DirectoryBrowserDialogProps {
   open: boolean;
@@ -27,6 +33,7 @@ export function DirectoryBrowserDialog({
 }: DirectoryBrowserDialogProps) {
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [manualPath, setManualPath] = useState(initialPath);
+  const [isPicking, setIsPicking] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -41,6 +48,19 @@ export function DirectoryBrowserDialog({
     queryFn: () => api.browse(currentPath),
     enabled: open && !!currentPath,
   });
+
+  const handleNativePick = async () => {
+    setIsPicking(true);
+    try {
+      const result = await api.pickFolder();
+      onSelect(result.path);
+      onOpenChange(false);
+    } catch {
+      // user cancelled or error — stay open
+    } finally {
+      setIsPicking(false);
+    }
+  };
 
   const handleNavigate = (dir: string) => {
     const sep = currentPath.includes("\\") ? "\\" : "/";
@@ -71,16 +91,39 @@ export function DirectoryBrowserDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Browse Directories</DialogTitle>
+          <DialogTitle>Select Directory</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
+          <Button
+            variant="secondary"
+            className="w-full justify-start gap-2"
+            onClick={handleNativePick}
+            disabled={isPicking}
+          >
+            {isPicking ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Monitor size={16} />
+            )}
+            {isPicking ? "Opening system dialog..." : "Browse with system dialog"}
+          </Button>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-line" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-surface px-2 text-ink-dim">or enter path manually</span>
+            </div>
+          </div>
+
           <div className="flex items-center gap-2">
             <Input
               value={manualPath}
               onChange={(e) => setManualPath(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleManualSubmit()}
-              placeholder="Type a path and press Enter"
+              placeholder="e.g. D:\\projects or ~/repos"
               className="flex-1 font-mono text-xs"
             />
             <Button variant="secondary" size="sm" onClick={handleManualSubmit}>
@@ -107,9 +150,7 @@ export function DirectoryBrowserDialog({
                       onClick={() => {
                         const sep = currentPath.includes("\\") ? "\\" : "/";
                         const target =
-                          "~" +
-                          sep +
-                          arr.slice(0, i + 1).join(sep);
+                          "~" + sep + arr.slice(0, i + 1).join(sep);
                         setCurrentPath(target);
                         setManualPath(target);
                       }}

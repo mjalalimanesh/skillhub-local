@@ -88,6 +88,8 @@ export const api = {
       `/api/browse?path=${encodeURIComponent(path)}`
     ),
 
+  pickFolder: () => request<{ path: string }>("/api/browse/pick"),
+
   addPlugin: (plugin: any) =>
     request<any>("/api/plugins", {
       method: "POST",
