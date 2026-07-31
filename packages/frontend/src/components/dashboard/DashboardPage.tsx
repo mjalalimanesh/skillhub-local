@@ -154,7 +154,7 @@ export default function DashboardPage() {
               >
                 <div className="flex items-center gap-2 min-w-0">
                   <Badge
-                    variant={item.type === "memory" ? "accent" : "default"}
+                    variant="default"
                     className="shrink-0"
                   >
                     {item.type}
