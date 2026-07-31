@@ -35,7 +35,7 @@ const sections: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/skills", icon: Package, label: "Skills" },
       { to: "/memories", icon: Brain, label: "Memories" },
-      { to: "/instructions", icon: FileText, label: "Instructions" },
+      { to: "/instructions", icon: FileText, label: "AGENTS.md" },
     ],
   },
   {
