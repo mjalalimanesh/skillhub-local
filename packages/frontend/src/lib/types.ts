@@ -23,6 +23,22 @@ export interface Skill {
   pluginName?: string;
 }
 
+export interface SkillFile {
+  name: string;
+  path: string;
+  relativePath: string;
+  size: number;
+  lastModified: string;
+  isBinary: boolean;
+}
+
+export interface SkillFileWriteResult {
+  agentId: string;
+  success: boolean;
+  skipped?: boolean;
+  error?: string;
+}
+
 export interface StoreSkill {
   id: string;
   slug: string;

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { scanAllSkills, copySkillToAgents, AGENT_DEFINITIONS, expandHome } from "../services/scanner.js";
+import { scanAllSkills, copySkillToAgents, isUnderKnownSkillDir, AGENT_DEFINITIONS, expandHome } from "../services/scanner.js";
 import { runSkillsCLI, validateSource, validateSkillName, searchSkillsCLI } from "../services/cli.js";
 
 interface WSProgressEvent {
@@ -110,16 +110,7 @@ export default async function skillRoutes(app: FastifyInstance) {
       }
 
       // Confirm it's under a known skill directory
-      const allowedBases = AGENT_DEFINITIONS.flatMap((a) => [
-        expandHome(a.globalDir),
-        ...(a.extraDirs || []).map(expandHome),
-      ]);
-      const resolved = body.skillPath.replace(/[\\/]/g, "/");
-      const isAllowed = allowedBases.some((base) => {
-        const rp = base.replace(/[\\/]/g, "/");
-        return resolved.startsWith(rp + "/") || resolved === rp;
-      });
-      if (!isAllowed) {
+      if (!isUnderKnownSkillDir(body.skillPath)) {
         return reply.code(400).send({ error: "Invalid skill path: not under a known skill directory" });
       }
 

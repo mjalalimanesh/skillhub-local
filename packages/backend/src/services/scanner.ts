@@ -1,5 +1,5 @@
 import { readdir, stat, readFile, access } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { homedir, platform } from "node:os";
 import matter from "gray-matter";
 import { detectInstalledPlugins } from "./installed-plugins.js";
@@ -282,6 +282,96 @@ export async function scanAllSkills(agentId?: string): Promise<InstalledSkill[]>
 export async function readSkillContent(skillPath: string): Promise<string> {
   const skillMdPath = join(skillPath, "SKILL.md");
   return readFile(skillMdPath, "utf-8");
+}
+
+export interface SkillFileInfo {
+  name: string;
+  path: string;
+  relativePath: string;
+  size: number;
+  lastModified: string;
+  isBinary: boolean;
+}
+
+const BINARY_SIZE_LIMIT = 2 * 1024 * 1024;
+const BINARY_CHECK_BYTES = 8192;
+
+async function isBinaryFile(p: string, size: number): Promise<boolean> {
+  if (size > BINARY_SIZE_LIMIT) return true;
+  try {
+    const { open } = await import("node:fs/promises");
+    const handle = await open(p, "r");
+    try {
+      const buffer = Buffer.alloc(BINARY_CHECK_BYTES);
+      const { bytesRead } = await handle.read(buffer, 0, BINARY_CHECK_BYTES, 0);
+      return buffer.subarray(0, bytesRead).includes(0);
+    } finally {
+      await handle.close();
+    }
+  } catch {
+    return false;
+  }
+}
+
+export async function listSkillFiles(skillPath: string): Promise<SkillFileInfo[]> {
+  const files: SkillFileInfo[] = [];
+  const root = resolve(skillPath);
+
+  const walk = async (dir: string): Promise<void> => {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith(".")) continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await walk(full);
+      } else if (entry.isFile()) {
+        let st;
+        try {
+          st = await stat(full);
+        } catch {
+          continue;
+        }
+        files.push({
+          name: entry.name,
+          path: full,
+          relativePath: relative(root, full).split(/[\\/]/).join("/"),
+          size: st.size,
+          lastModified: st.mtime.toISOString(),
+          isBinary: await isBinaryFile(full, st.size),
+        });
+      }
+    }
+  };
+
+  await walk(root);
+  files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  return files;
+}
+
+export async function readSkillFile(filePath: string): Promise<string> {
+  return readFile(filePath, "utf-8");
+}
+
+export async function writeSkillFile(filePath: string, content: string): Promise<void> {
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(filePath, content, "utf-8");
+}
+
+export function isUnderKnownSkillDir(p: string): boolean {
+  const allowedBases = AGENT_DEFINITIONS.flatMap((a) => [
+    expandHome(a.globalDir),
+    ...(a.extraDirs || []).map(expandHome),
+  ]);
+  const resolved = resolve(p).replace(/[\\/]/g, "/");
+  return allowedBases.some((base) => {
+    const rp = resolve(base).replace(/[\\/]/g, "/");
+    return resolved.startsWith(rp + "/") || resolved === rp;
+  });
 }
 
 export async function copySkillToAgents(

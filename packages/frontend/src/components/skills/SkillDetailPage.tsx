@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAppStore } from "@/stores/app";
@@ -10,8 +10,32 @@ import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyToAgentsDialog } from "./CopyToAgentsDialog";
 import { useToastStore } from "@/components/ui/toaster";
-import { Trash2, RefreshCw, Copy } from "lucide-react";
-import type { Skill } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import {
+  Trash2,
+  RefreshCw,
+  Copy,
+  Save,
+  FileText,
+  FileCode2,
+  File as FileIcon,
+  Image as ImageIcon,
+  Folder,
+} from "lucide-react";
+import type { Skill, SkillFile } from "@/lib/types";
+
+function fileIcon(name: string) {
+  const ext = name.split(".").pop()?.toLowerCase() || "";
+  if (ext === "md") return <FileText size={14} />;
+  if (["png", "jpg", "jpeg", "gif", "svg", "webp", "ico"].includes(ext)) return <ImageIcon size={14} />;
+  if (["js", "ts", "tsx", "jsx", "py", "sh", "json", "yaml", "yml", "toml", "css", "html", "mjs", "cjs", "rb", "go", "rs"].includes(ext)) return <FileCode2 size={14} />;
+  return <FileIcon size={14} />;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  return `${(bytes / 1024).toFixed(1)} KB`;
+}
 
 export default function SkillDetailPage() {
   const { skillName } = useParams<{ skillName: string }>();
@@ -21,6 +45,10 @@ export default function SkillDetailPage() {
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [editorContent, setEditorContent] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
+  const [syncToInstances, setSyncToInstances] = useState(true);
 
   const { data: skillsData, isLoading: skillsLoading } = useQuery({
     queryKey: ["skills"],
@@ -33,11 +61,60 @@ export default function SkillDetailPage() {
 
   const primaryInstance = instances[0];
 
-  const { data: detailData, isLoading: detailLoading } = useQuery({
-    queryKey: ["skillDetail", primaryInstance?.agentId, skillName],
-    queryFn: () => api.getSkillDetail(primaryInstance!.agentId, skillName!),
+  const { data: filesData, isLoading: filesLoading } = useQuery({
+    queryKey: ["skillFiles", primaryInstance?.agentId, skillName],
+    queryFn: () => api.getSkillFiles(primaryInstance!.agentId, skillName!),
     enabled: !!primaryInstance,
   });
+
+  useEffect(() => {
+    setSelectedPath(null);
+    setEditorContent("");
+    setIsDirty(false);
+  }, [primaryInstance?.id]);
+
+  useEffect(() => {
+    if (!selectedPath && filesData?.files.length) {
+      const skillMd = filesData.files.find((f) => f.relativePath === "SKILL.md");
+      setSelectedPath((skillMd || filesData.files[0]).path);
+    }
+  }, [filesData, selectedPath]);
+
+  const selectedFile: SkillFile | undefined = filesData?.files.find(
+    (f) => f.path === selectedPath
+  );
+
+  const { data: contentData, isLoading: contentLoading } = useQuery({
+    queryKey: ["skillFileContent", primaryInstance?.agentId, skillName, selectedPath],
+    queryFn: () => api.getSkillFileContent(primaryInstance!.agentId, skillName!, selectedPath!),
+    enabled: !!primaryInstance && !!selectedPath,
+  });
+
+  useEffect(() => {
+    if (contentData?.content !== undefined) {
+      setEditorContent(contentData.content ?? "");
+      setIsDirty(false);
+    }
+  }, [contentData]);
+
+  const readOnly = !!primaryInstance?.pluginId;
+
+  const selectFile = (path: string) => {
+    if (path === selectedPath) return;
+    if (isDirty && !window.confirm("Discard unsaved changes?")) return;
+    setSelectedPath(path);
+  };
+
+  const fileGroups: [string, SkillFile[]][] = (() => {
+    const map = new Map<string, SkillFile[]>();
+    for (const f of filesData?.files || []) {
+      const idx = f.relativePath.lastIndexOf("/");
+      const folder = idx === -1 ? "" : f.relativePath.slice(0, idx);
+      if (!map.has(folder)) map.set(folder, []);
+      map.get(folder)!.push(f);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  })();
 
   const removeMutation = useMutation({
     mutationFn: () =>
@@ -66,7 +143,38 @@ export default function SkillDetailPage() {
     },
   });
 
-  if (skillsLoading || detailLoading) {
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      api.saveSkillFileContent(
+        primaryInstance!.agentId,
+        skillName!,
+        selectedPath!,
+        editorContent,
+        syncToInstances
+      ),
+    onSuccess: (data) => {
+      setIsDirty(false);
+      queryClient.invalidateQueries({ queryKey: ["skillDetail", primaryInstance?.agentId, skillName] });
+      queryClient.invalidateQueries({ queryKey: ["skillFileContent", primaryInstance?.agentId, skillName] });
+      queryClient.invalidateQueries({ queryKey: ["skillFiles", primaryInstance?.agentId, skillName] });
+      const results = data.results || [];
+      const updated = results.filter((r) => r.success && !r.skipped).length;
+      const skipped = results.filter((r) => r.skipped).length;
+      const parts: string[] = [];
+      if (updated) parts.push(`saved to ${updated} agent${updated !== 1 ? "s" : ""}`);
+      if (skipped) parts.push(`skipped ${skipped} (file missing)`);
+      addToast({
+        type: "success",
+        title: "Skill file saved",
+        description: parts.length ? parts.join(", ") : undefined,
+      });
+    },
+    onError: (error: Error) => {
+      addToast({ type: "error", title: "Save failed", description: error.message });
+    },
+  });
+
+  if (skillsLoading || (primaryInstance && filesLoading)) {
     return (
       <div className="flex items-center justify-center h-64 text-ink-dim">
         Loading skill details...
@@ -166,14 +274,111 @@ export default function SkillDetailPage() {
         </div>
       </div>
 
-      {detailData?.content && (
-        <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-ink-muted">SKILL.md</h2>
-          <pre className="bg-surface border border-line rounded-[var(--radius-md)] p-4 overflow-x-auto text-sm text-ink font-mono whitespace-pre-wrap">
-            {detailData.content}
-          </pre>
+      <div className="flex gap-4 items-start">
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-sm font-semibold text-ink-muted truncate">
+                {selectedFile?.relativePath}
+              </h2>
+              {selectedFile?.isBinary && <Badge variant="warning">binary</Badge>}
+              {readOnly && <Badge variant="warning">read-only (plugin skill)</Badge>}
+              {selectedFile && (
+                <span className="text-xs text-ink-dim">
+                  {formatSize(selectedFile.size)}
+                </span>
+              )}
+            </div>
+            {!readOnly && !selectedFile?.isBinary && (
+              <div className="flex items-center gap-3">
+                {instances.length > 1 && (
+                  <label className="flex items-center gap-1.5 text-xs text-ink-dim cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={syncToInstances}
+                      onChange={(e) => setSyncToInstances(e.target.checked)}
+                      className="accent-[var(--accent)]"
+                    />
+                    Save to all {instances.length} agents
+                  </label>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => saveMutation.mutate()}
+                  disabled={!isDirty || saveMutation.isPending}
+                >
+                  <Save size={14} />
+                  {saveMutation.isPending ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {contentLoading ? (
+            <div className="text-ink-dim py-8">Loading content...</div>
+          ) : selectedFile?.isBinary ? (
+            <div className="bg-surface border border-line rounded-[var(--radius-md)] p-8 text-center text-sm text-ink-dim">
+              Binary file — cannot be edited here.
+            </div>
+          ) : (
+            <textarea
+              className="w-full h-[500px] bg-surface border border-line rounded-[var(--radius-md)] p-4 text-sm text-ink font-mono whitespace-pre-wrap resize-y focus:outline-none focus:ring-2 focus:ring-accent/50"
+              value={editorContent}
+              onChange={(e) => {
+                setEditorContent(e.target.value);
+                setIsDirty(true);
+              }}
+              readOnly={readOnly}
+            />
+          )}
         </div>
-      )}
+
+        <Card className="p-2 w-64 shrink-0">
+          <div className="px-2 pb-2 pt-1 text-xs font-semibold text-ink-muted flex items-center justify-between">
+            <span>Files</span>
+            <span>{filesData?.files.length ?? 0}</span>
+          </div>
+          <div className="space-y-3 max-h-[520px] overflow-y-auto">
+            {fileGroups.map(([folder, files]) => (
+              <div key={folder || "(root)"}>
+                {folder && (
+                  <div className="px-2 pb-1 flex items-center gap-1.5 text-[11px] font-medium text-ink-dim">
+                    <Folder size={11} />
+                    {folder}/
+                  </div>
+                )}
+                <div className="space-y-0.5">
+                  {files.map((f) => (
+                    <button
+                      key={f.path}
+                      onClick={() => selectFile(f.path)}
+                      className={cn(
+                        "w-full flex items-center gap-2 px-2 py-1.5 rounded-[var(--radius-sm)] text-left text-sm transition-colors",
+                        f.path === selectedPath
+                          ? "bg-accent/10 text-accent"
+                          : "text-ink hover:bg-raised"
+                      )}
+                    >
+                      <span className="shrink-0">{fileIcon(f.name)}</span>
+                      <span className="truncate flex-1">{f.name}</span>
+                      {f.isBinary && (
+                        <span className="text-[10px] text-ink-dim border border-line rounded px-1">
+                          bin
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {fileGroups.length === 0 && (
+              <div className="px-2 py-4 text-xs text-ink-dim text-center">
+                No files
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
 
       <ConfirmDialog
         open={confirmDelete}

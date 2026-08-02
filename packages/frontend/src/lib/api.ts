@@ -1,3 +1,5 @@
+import type { SkillFile, SkillFileWriteResult } from "@/lib/types";
+
 const BASE = "";
 
 let authToken: string | null = null;
@@ -54,6 +56,31 @@ export const api = {
 
   getSkillDetail: (agentId: string, skillName: string) =>
     request<{ skill: any; content: string }>(`/api/agents/${agentId}/skills/${skillName}`),
+
+  getSkillFiles: (agentId: string, skillName: string) =>
+    request<{ files: SkillFile[] }>(
+      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files`
+    ),
+
+  getSkillFileContent: (agentId: string, skillName: string, path: string) =>
+    request<{ content: string | null; isBinary: boolean }>(
+      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files/content?path=${encodeURIComponent(path)}`
+    ),
+
+  saveSkillFileContent: (
+    agentId: string,
+    skillName: string,
+    path: string,
+    content: string,
+    syncToInstances?: boolean
+  ) =>
+    request<{ success: boolean; results?: SkillFileWriteResult[] }>(
+      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files/content`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ path, content, syncToInstances }),
+      }
+    ),
 
   getSkills: (params?: { agent?: string; scope?: string }) => {
     const qs = new URLSearchParams();
