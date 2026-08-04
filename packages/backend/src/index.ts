@@ -23,7 +23,12 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PORT = Number(process.env.PORT) || 3742;
 const HOST = process.env.HOST || "127.0.0.1";
 
-const app = Fastify({ logger: true });
+// Request logging is opt-in (SKILLHUB_LOG=1 or a log level like "info").
+// Default is silent so the CLI doesn't spam the terminal.
+const loggerOption = process.env.SKILLHUB_LOG
+  ? { level: process.env.SKILLHUB_LOG === "1" ? "info" : process.env.SKILLHUB_LOG }
+  : false;
+const app = Fastify({ logger: loggerOption });
 
 const authToken = await getAuthToken();
 
