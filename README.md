@@ -57,21 +57,27 @@ Local web app for managing AI agent skills across your PC.
 
 ## Setup
 
-Requires [Node.js](https://nodejs.org/) (v18+) and the [skills](https://www.npmjs.com/package/skills) CLI (used for install/remove/update/search). Global install recommended for performance, but `npx skills` works too:
+Requires [Node.js](https://nodejs.org/) (v18+).
+
+Install the [skills](https://www.npmjs.com/package/skills) CLI (used for install/remove/update/search). Pin to a known-good version:
 
 ```bash
-npm install -g skills
+npm install -g skills@1.5.21
 ```
 
+SkillHub Local prefers a globally installed `skills` binary; if it's missing it falls back to `npx skills` (or `npx skills@<version>` via the `SKILLHUB_SKILLS_VERSION` env var).
+
+Install and run:
+
 ```bash
-git clone https://github.com/mjalalimanesh/skillhub-local.git
-cd skillhub-local
-npm install
-npm start
+npm install -g skillhub-local
+skillhub-local
 ```
 
 - **App:** `http://localhost:3742`
-- **Development:** `npm run dev` (frontend on `:5173`, backend on `:3742`, Vite proxies `/api` and `/ws`)
+- **Development from source:** `git clone https://github.com/mjalalimanesh/skillhub-local.git && cd skillhub-local && npm install && npm run dev` (frontend on `:5173`, backend on `:3742`, Vite proxies `/api` and `/ws`)
+
+> **Security note:** Installing a skill runs its code on your machine. Only install skills from sources you trust.
 
 ## Tech Stack
 

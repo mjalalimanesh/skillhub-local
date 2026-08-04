@@ -1,5 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync } from "node:fs";
 import { platform } from "node:os";
+import { delimiter, join } from "node:path";
 
 export interface CLIResult {
   exitCode: number | null;
@@ -11,12 +13,50 @@ export type CLIProgressCallback = (data: string) => void;
 
 const isWin32 = platform() === "win32";
 
+const PINNED_VERSION = process.env.SKILLHUB_SKILLS_VERSION || "";
+
+function findOnPath(name: string): string | null {
+  const pathVar = process.env.PATH || "";
+  const extensions = isWin32
+    ? ["", ".cmd", ".bat", ".exe"]
+    : [""];
+  for (const dir of pathVar.split(delimiter)) {
+    if (!dir) continue;
+    for (const ext of extensions) {
+      const candidate = join(dir, `${name}${ext}`);
+      if (existsSync(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+let resolvedCommand: string[] | null = null;
+
+function resolveSkillsCommand(): string[] {
+  if (resolvedCommand) return resolvedCommand;
+
+  if (PINNED_VERSION) {
+    resolvedCommand = ["npx", `skills@${PINNED_VERSION}`];
+    return resolvedCommand;
+  }
+
+  const local = findOnPath("skills");
+  if (local) {
+    resolvedCommand = [local];
+    return resolvedCommand;
+  }
+
+  resolvedCommand = ["npx", "skills"];
+  return resolvedCommand;
+}
+
 export function runSkillsCLI(
   args: string[],
   onProgress?: CLIProgressCallback
 ): Promise<CLIResult> {
   return new Promise((resolve, reject) => {
-    const proc: ChildProcess = spawn("npx", ["skills", ...args], {
+    const [cmd, ...cmdArgs] = resolveSkillsCommand();
+    const proc: ChildProcess = spawn(cmd, [...cmdArgs, ...args], {
       shell: isWin32,
       env: {
         ...process.env,

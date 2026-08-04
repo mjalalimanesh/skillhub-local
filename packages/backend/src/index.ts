@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import fastifyStatic from "@fastify/static";
@@ -31,7 +32,7 @@ const authToken = await getAuthToken();
 const startupConfig = await loadConfig();
 await reconcileTrustedDirs(startupConfig.projectDirs || []);
 
-const distPath = join(__dirname, "../../frontend/dist");
+const distPath = process.env.SKILLHUB_FRONTEND_DIST || join(__dirname, "../../frontend/dist");
 const isProduction = existsSync(distPath);
 
 await app.register(cors, {
