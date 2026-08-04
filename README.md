@@ -59,10 +59,10 @@ Local web app for managing AI agent skills across your PC.
 
 Requires [Node.js](https://nodejs.org/) (v18+).
 
-Install the [skills](https://www.npmjs.com/package/skills) CLI (used for install/remove/update/search). Pin to a known-good version:
+Install the [skills](https://www.npmjs.com/package/skills) CLI (used for install/remove/update/search):
 
 ```bash
-npm install -g skills@1.5.21
+npm install -g skills
 ```
 
 SkillHub Local prefers a globally installed `skills` binary; if it's missing it falls back to `npx skills` (or `npx skills@<version>` via the `SKILLHUB_SKILLS_VERSION` env var).
