@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { scanAllSkills, copySkillToAgents, isUnderKnownSkillDir, AGENT_DEFINITIONS, expandHome } from "../services/scanner.js";
+import { scanAllSkills, copySkillToAgents, isUnderKnownSkillDir, findSkillOverlaps, AGENT_DEFINITIONS, expandHome } from "../services/scanner.js";
 import { runSkillsCLI, validateSource, validateSkillName, searchSkillsCLI } from "../services/cli.js";
 
 interface WSProgressEvent {
@@ -21,6 +21,12 @@ export default async function skillRoutes(app: FastifyInstance) {
       skills = skills.filter((s) => s.scope === scope);
     }
     return { skills, total: skills.length };
+  });
+
+  app.get("/api/skills/overlaps", async (request) => {
+    const { agent } = request.query as { agent?: string };
+    const groups = await findSkillOverlaps(agent);
+    return { groups };
   });
 
   app.post("/api/skills/install", async (request, reply) => {

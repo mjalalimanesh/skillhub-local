@@ -90,6 +90,11 @@ export const api = {
     return request<{ skills: any[]; total: number }>(`/api/skills${q ? `?${q}` : ""}`);
   },
 
+  getSkillOverlaps: (agent?: string) => {
+    const qs = agent ? `?agent=${encodeURIComponent(agent)}` : "";
+    return request<{ groups: Array<{ agentId: string; agentName: string; reason: "identical" | "similar"; similarity: number; skills: any[] }> }>(`/api/skills/overlaps${qs}`);
+  },
+
   installSkill: (body: {
     source: string;
     skill: string;

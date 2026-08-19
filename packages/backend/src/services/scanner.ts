@@ -425,4 +425,219 @@ export async function copySkillToAgents(
   return results;
 }
 
+// ── Overlap detection ──────────────────────────────────────────────────────
+
+const STOPWORDS = new Set([
+  "use", "when", "the", "a", "an", "for", "and", "or", "with", "this", "that",
+  "your", "you", "it", "is", "are", "be", "to", "of", "in", "on", "as", "do",
+  "at", "by", "from", "not", "but", "if", "how", "what", "which", "who", "can",
+  "will", "all", "any", "each", "than", "them", "then", "also", "about",
+  "code", "task", "skill", "agent", "tool", "file", "files", "work",
+]);
+
+function stem(word: string): string {
+  if (word.length <= 4) return word;
+  if (word.endsWith("ing")) return word.slice(0, -3);
+  if (word.endsWith("tion")) return word.slice(0, -4);
+  if (word.endsWith("ness")) return word.slice(0, -4);
+  if (word.endsWith("ment")) return word.slice(0, -4);
+  if (word.endsWith("ies")) return word.slice(0, -3);
+  if (word.endsWith("es")) return word.slice(0, -2);
+  if (word.endsWith("s")) return word.slice(0, -1);
+  return word;
+}
+
+function normalizeName(name: string): string {
+  return name.toLowerCase().replace(/[-_.\s]+/g, " ").trim();
+}
+
+function tokenize(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .map(stem)
+    .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+}
+
+function nameTokens(name: string): string[] {
+  return normalizeName(name)
+    .split(" ")
+    .map(stem)
+    .filter((w) => w.length > 1);
+}
+
+function overlapCoefficient(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let intersection = 0;
+  for (const x of a) if (b.has(x)) intersection++;
+  return intersection / Math.min(a.size, b.size);
+}
+
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 && b.size === 0) return 0;
+  let intersection = 0;
+  for (const x of a) if (b.has(x)) intersection++;
+  const union = a.size + b.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+function isSubset(small: Set<string>, large: Set<string>): boolean {
+  for (const x of small) if (!large.has(x)) return false;
+  return true;
+}
+
+export interface SkillOverlapGroup {
+  agentId: string;
+  agentName: string;
+  reason: "identical" | "similar";
+  similarity: number;
+  skills: InstalledSkill[];
+}
+
+function buildOverlapClusters(
+  agentId: string,
+  agentName: string,
+  skills: InstalledSkill[]
+): SkillOverlapGroup[] {
+  if (skills.length < 2) return [];
+
+  const groups: SkillOverlapGroup[] = [];
+  const used = new Set<number>();
+
+  // Tier 1: exact normalized-name matches (identical)
+  const nameMap = new Map<string, InstalledSkill[]>();
+  for (const skill of skills) {
+    const key = normalizeName(skill.name);
+    const arr = nameMap.get(key) || [];
+    arr.push(skill);
+    nameMap.set(key, arr);
+  }
+  for (const [, group] of nameMap) {
+    if (group.length < 2) continue;
+    // Only flag if at least two entries have different paths
+    const uniquePaths = new Set(group.map((s) => s.path));
+    if (uniquePaths.size < 2) continue;
+    groups.push({
+      agentId,
+      agentName,
+      reason: "identical",
+      similarity: 1,
+      skills: group,
+    });
+    for (const s of group) used.add(skills.indexOf(s));
+  }
+
+  // Family suppression: if ≥3 skills share a first name token, don't flag pairs inside
+  const firstTokenMap = new Map<string, Set<number>>();
+  for (let i = 0; i < skills.length; i++) {
+    if (used.has(i)) continue;
+    const tokens = nameTokens(skills[i].name);
+    if (tokens.length === 0) continue;
+    const first = tokens[0];
+    const set = firstTokenMap.get(first) || new Set();
+    set.add(i);
+    firstTokenMap.set(first, set);
+  }
+  const familyIndices = new Set<number>();
+  for (const [, indices] of firstTokenMap) {
+    if (indices.size >= 3) {
+      for (const i of indices) familyIndices.add(i);
+    }
+  }
+
+  // Tier 2: similar pairs
+  const remaining = skills
+    .map((s, i) => ({ s, i }))
+    .filter(({ i }) => !used.has(i) && !familyIndices.has(i));
+  const paired = new Set<number>();
+
+  for (let a = 0; a < remaining.length; a++) {
+    const sa = remaining[a].s;
+    const ia = remaining[a].i;
+    if (paired.has(ia)) continue;
+
+    const na = new Set(nameTokens(sa.name));
+    const da = new Set(tokenize(sa.description));
+    const pairSkills: InstalledSkill[] = [sa];
+    let bestSimilarity = 0;
+
+    for (let b = a + 1; b < remaining.length; b++) {
+      const sb = remaining[b].s;
+      const ib = remaining[b].i;
+      if (paired.has(ib)) continue;
+
+      const nb = new Set(nameTokens(sb.name));
+      const db = new Set(tokenize(sb.description));
+
+      const nameOverlap = overlapCoefficient(na, nb);
+      const descJaccard = jaccard(da, db);
+
+      let similar = false;
+      let score = 0;
+
+      if (nameOverlap >= 0.5 && descJaccard >= 0.2) {
+        similar = true;
+        score = nameOverlap * 0.4 + descJaccard * 0.6;
+      } else if (descJaccard >= 0.45 && overlapCoefficient(na, nb) > 0) {
+        similar = true;
+        score = descJaccard;
+      } else if (isSubset(na, nb) || isSubset(nb, na)) {
+        if (descJaccard >= 0.25) {
+          similar = true;
+          score = (nameOverlap + 1) * 0.3 + descJaccard * 0.7;
+        }
+      }
+
+      if (similar && score > bestSimilarity) {
+        bestSimilarity = score;
+      }
+
+      if (similar) {
+        pairSkills.push(sb);
+        paired.add(ib);
+        paired.add(remaining[b].i);
+      }
+    }
+
+    if (pairSkills.length >= 2) {
+      groups.push({
+        agentId,
+        agentName,
+        reason: "similar",
+        similarity: Math.min(Math.round(bestSimilarity * 100), 99),
+        skills: pairSkills,
+      });
+    }
+  }
+
+  return groups.sort((a, b) => {
+    if (a.reason !== b.reason) return a.reason === "identical" ? -1 : 1;
+    return b.similarity - a.similarity;
+  });
+}
+
+export async function findSkillOverlaps(
+  agentId?: string
+): Promise<SkillOverlapGroup[]> {
+  const allSkills = await scanAllSkills(agentId);
+  const agents = AGENT_DEFINITIONS;
+  const agentNameMap = new Map(agents.map((a) => [a.id, a.name]));
+
+  const byAgent = new Map<string, InstalledSkill[]>();
+  for (const skill of allSkills) {
+    const arr = byAgent.get(skill.agentId) || [];
+    arr.push(skill);
+    byAgent.set(skill.agentId, arr);
+  }
+
+  const groups: SkillOverlapGroup[] = [];
+  for (const [id, skills] of byAgent) {
+    const name = agentNameMap.get(id) || id;
+    groups.push(...buildOverlapClusters(id, name, skills));
+  }
+
+  return groups;
+}
+
 export { AGENT_DEFINITIONS, expandHome };

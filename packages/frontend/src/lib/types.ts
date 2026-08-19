@@ -127,3 +127,11 @@ export interface McpServer {
   tools?: { enabled: string[]; disabled: string[] };
   raw: Record<string, unknown>;
 }
+
+export interface SkillOverlapGroup {
+  agentId: string;
+  agentName: string;
+  reason: "identical" | "similar";
+  similarity: number;
+  skills: Skill[];
+}
