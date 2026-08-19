@@ -637,7 +637,7 @@ export async function findSkillOverlaps(
     groups.push(...buildOverlapClusters(id, name, skills));
   }
 
-  return groups;
+  return groups.filter((g) => g.reason === "similar");
 }
 
 export { AGENT_DEFINITIONS, expandHome };
