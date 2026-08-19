@@ -1,6 +1,7 @@
 import { readdir, stat, readFile, access } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import { homedir, platform } from "node:os";
+import { createHash } from "node:crypto";
 import matter from "gray-matter";
 import { detectInstalledPlugins } from "./installed-plugins.js";
 import { detectMcpServers } from "./mcp-scanner.js";
@@ -624,6 +625,17 @@ export async function findSkillOverlaps(
   const agents = AGENT_DEFINITIONS;
   const agentNameMap = new Map(agents.map((a) => [a.id, a.name]));
 
+  // Hash SKILL.md content for each skill to detect content-identical copies
+  const contentHash = new Map<string, string>();
+  for (const skill of allSkills) {
+    try {
+      const raw = await readFile(join(skill.path, "SKILL.md"), "utf-8");
+      contentHash.set(skill.id, createHash("md5").update(raw).digest("hex"));
+    } catch {
+      contentHash.set(skill.id, "");
+    }
+  }
+
   const byAgent = new Map<string, InstalledSkill[]>();
   for (const skill of allSkills) {
     const arr = byAgent.get(skill.agentId) || [];
@@ -637,7 +649,13 @@ export async function findSkillOverlaps(
     groups.push(...buildOverlapClusters(id, name, skills));
   }
 
-  return groups.filter((g) => g.reason === "similar");
+  return groups
+    .filter((g) => g.reason === "similar")
+    .filter((g) => {
+      // Exclude if all skills in the group have identical content
+      const hashes = new Set(g.skills.map((s) => contentHash.get(s.id) || ""));
+      return hashes.size > 1;
+    });
 }
 
 export { AGENT_DEFINITIONS, expandHome };
