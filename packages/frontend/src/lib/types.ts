@@ -122,6 +122,7 @@ export interface McpServer {
   type?: string;
   cwd?: string;
   env?: Record<string, string>;
+  headers?: Record<string, string>;
   enabled?: boolean;
   tools?: { enabled: string[]; disabled: string[] };
   raw: Record<string, unknown>;

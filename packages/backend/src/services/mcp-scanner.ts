@@ -22,6 +22,7 @@ export interface McpServer {
   type?: string;
   cwd?: string;
   env?: Record<string, string>;
+  headers?: Record<string, string>;
   enabled?: boolean;
   tools?: { enabled: string[]; disabled: string[] };
   raw: Record<string, unknown>;
@@ -308,6 +309,14 @@ function extractEntry(
             .map(([k, v]) => [k, v as string])
         )
       : undefined;
+  const headers: Record<string, string> | undefined =
+    entry.headers && typeof entry.headers === "object" && !Array.isArray(entry.headers)
+      ? Object.fromEntries(
+          Object.entries(entry.headers as Record<string, unknown>)
+            .filter(([, v]) => typeof v === "string")
+            .map(([k, v]) => [k, v as string])
+        )
+      : undefined;
   const enabledTools = Array.isArray(entry.enabledTools)
     ? entry.enabledTools.filter((t): t is string => typeof t === "string")
     : [];
@@ -346,6 +355,7 @@ function extractEntry(
     type,
     cwd,
     env,
+    headers,
     enabled,
     tools:
       enabledTools.length || disabledTools.length

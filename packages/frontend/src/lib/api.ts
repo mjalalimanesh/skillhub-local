@@ -162,11 +162,37 @@ export const api = {
 
   getMcpServers: (agent?: string) => {
     const qs = agent ? `?agent=${encodeURIComponent(agent)}` : "";
-    return request<{ servers: Array<{ id: string; name: string; agentId: string; agentName: string; scope: string; projectId?: string; projectName?: string; sourceFile: string; transport: string; command?: string; args?: string[]; url?: string; type?: string; cwd?: string; env?: Record<string, string>; enabled?: boolean; tools?: { enabled: string[]; disabled: string[] }; raw: Record<string, unknown> }>; total: number }>(`/api/mcp${qs}`);
+    return request<{ servers: Array<{ id: string; name: string; agentId: string; agentName: string; scope: string; projectId?: string; projectName?: string; sourceFile: string; transport: string; command?: string; args?: string[]; url?: string; type?: string; cwd?: string; env?: Record<string, string>; headers?: Record<string, string>; enabled?: boolean; tools?: { enabled: string[]; disabled: string[] }; raw: Record<string, unknown> }>; total: number }>(`/api/mcp${qs}`);
   },
 
   getMcpTools: (id: string) =>
-    request<{ serverId: string; tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }>; error?: string }>("/api/mcp/tools", {
+    request<{ serverId: string; tools: Array<{ name: string; description?: string; inputSchema?: Record<string, unknown> }>; error?: string; authRequired?: boolean; authorizationUrl?: string }>("/api/mcp/tools", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    }),
+
+  getMcpAuth: (id: string) =>
+    request<{ headers: Record<string, string>; env: Record<string, string>; oauthAuthorized: boolean }>(`/api/mcp/auth/${encodeURIComponent(id)}`),
+
+  setMcpAuth: (id: string, body: { headers?: Record<string, string>; env?: Record<string, string> }) =>
+    request<{ headers: Record<string, string>; env: Record<string, string> }>(`/api/mcp/auth/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  clearMcpAuth: (id: string) =>
+    request<{ success: boolean }>(`/api/mcp/auth/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+
+  startMcpOAuth: (id: string) =>
+    request<{ authorized: boolean; authorizationUrl?: string; error?: string }>("/api/mcp/oauth/start", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    }),
+
+  getMcpOAuthStatus: (id: string) =>
+    request<{ authorized: boolean }>("/api/mcp/oauth/status", {
       method: "POST",
       body: JSON.stringify({ id }),
     }),
