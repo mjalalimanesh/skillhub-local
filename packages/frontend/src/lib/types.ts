@@ -144,3 +144,12 @@ export interface SkillOverlapGroup {
   similarity: number;
   skills: Skill[];
 }
+
+export interface AgentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  content: string;
+  builtin: boolean;
+  updatedAt?: string;
+}

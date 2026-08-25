@@ -1,4 +1,4 @@
-import type { SkillFile, SkillFileWriteResult, ProjectRoot } from "@/lib/types";
+import type { SkillFile, SkillFileWriteResult, ProjectRoot, AgentTemplate } from "@/lib/types";
 
 const BASE = "";
 
@@ -246,5 +246,37 @@ export const api = {
     request<{ success: boolean }>("/api/instructions/content", {
       method: "PUT",
       body: JSON.stringify({ path, content }),
+    }),
+
+  getTemplates: () =>
+    request<{ templates: AgentTemplate[]; total: number }>("/api/templates"),
+
+  createTemplate: (body: { name: string; description: string; content: string }) =>
+    request<AgentTemplate>("/api/templates", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateTemplate: (id: string, body: { name: string; description: string; content: string }) =>
+    request<AgentTemplate>(`/api/templates/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  deleteTemplate: (id: string) =>
+    request<{ success: boolean }>(`/api/templates/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+
+  applyTemplate: (body: {
+    id?: string;
+    content?: string;
+    targetPath: string;
+    alsoClaude?: boolean;
+    force?: boolean;
+  }) =>
+    request<{ success: boolean; written: string[] }>("/api/templates/apply", {
+      method: "POST",
+      body: JSON.stringify(body),
     }),
 };

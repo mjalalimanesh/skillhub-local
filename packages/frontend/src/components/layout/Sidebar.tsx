@@ -13,6 +13,7 @@ import {
   Brain,
   FileText,
   Cable,
+  LayoutTemplate,
 } from "lucide-react";
 import { useAppStore } from "@/stores/app";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ const sections: { label: string; items: NavItem[] }[] = [
       { to: "/skills", icon: Package, label: "Skills" },
       { to: "/memories", icon: Brain, label: "Memories" },
       { to: "/instructions", icon: FileText, label: "AGENTS.md" },
+      { to: "/templates", icon: LayoutTemplate, label: "Templates" },
     ],
   },
   {
