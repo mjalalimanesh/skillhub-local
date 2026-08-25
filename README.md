@@ -55,7 +55,7 @@ Surf stale memories, duplicate skills, and instruction files spread across proje
 - **Memories** — scan AI-learned context from Codex, Claude Code, Windsurf, Cline, and Gemini CLI; global and project-scoped, with inline editing and re-scan
 - **Instructions** — scan user-authored rules across 12+ agents and `AGENTS.md`, with YAML frontmatter badges, inline editing, and configurable project directories
 - **Plugins** — detect plugins in agent cache directories (Cursor, Codex), browse skills inside each plugin, and configure custom plugins via `skillhub.config.json`
-- **Dashboard** — stat cards, real-time activity feed over WebSocket, and a recent-context feed
+- **Dashboard** — stat cards, per-agent and per-project context breakdowns, and a real-time activity feed over WebSocket
 - **Settings** — default scope, install method (symlink/copy), theme, telemetry, and project directories with a native OS folder picker
 
 ## Setup details

@@ -56,30 +56,46 @@ export default function DashboardPage() {
   const instructions = instructionData?.instructions || [];
   const mcpServers = mcpData?.servers || [];
   const detectedAgents = agents.filter((a) => a.detected);
+  const projects = projectsData?.projects || [];
 
-  const recentContext = [
-    ...memories.map((m) => ({
-      type: "memory" as const,
-      id: m.id,
-      name: m.name,
-      tool: m.toolName,
-      lastModified: m.lastModified,
-      to: `/memories/${encodeURIComponent(m.id)}`,
-    })),
-    ...instructions.map((i) => ({
-      type: "instruction" as const,
-      id: i.id,
-      name: i.name,
-      tool: i.toolName,
-      lastModified: i.lastModified,
-      to: `/instructions/${encodeURIComponent(i.id)}`,
-    })),
-  ]
-    .sort(
-      (a, b) =>
-        new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
-    )
-    .slice(0, 5);
+  // Unique physical skills per project — shared dirs (.agents/skills) are
+  // attributed to many agents but must count once per project.
+  const projectSkillKeys = new Map<string, Set<string>>();
+  for (const s of skills) {
+    if (s.scope !== "project" || !s.projectId) continue;
+    let set = projectSkillKeys.get(s.projectId);
+    if (!set) {
+      set = new Set();
+      projectSkillKeys.set(s.projectId, set);
+    }
+    set.add(`${s.name}|${s.path}`);
+  }
+  const projectCounts = new Map<
+    string,
+    { skills: number; memories: number; instructions: number; mcp: number }
+  >();
+  const countsFor = (id: string) => {
+    let c = projectCounts.get(id);
+    if (!c) {
+      c = {
+        skills: projectSkillKeys.get(id)?.size || 0,
+        memories: 0,
+        instructions: 0,
+        mcp: 0,
+      };
+      projectCounts.set(id, c);
+    }
+    return c;
+  };
+  for (const m of memories) {
+    if (m.projectId) countsFor(m.projectId).memories++;
+  }
+  for (const i of instructions) {
+    if (i.projectId) countsFor(i.projectId).instructions++;
+  }
+  for (const s of mcpServers) {
+    if (s.projectId) countsFor(s.projectId).mcp++;
+  }
 
   return (
     <div className="space-y-6">
@@ -170,37 +186,34 @@ export default function DashboardPage() {
 
         <Card className="p-5">
           <h2 className="text-sm font-semibold text-ink-muted mb-3">
-            Recent Context Changes
+            Context by Project
           </h2>
           <div className="space-y-2">
-            {recentContext.map((item) => (
-              <Link
-                key={item.id}
-                to={item.to}
-                className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-raised hover:border-accent/50 border border-transparent transition-colors"
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Badge
-                    variant="default"
-                    className="shrink-0"
-                  >
-                    {item.type}
-                  </Badge>
-                  <span className="text-sm font-medium text-ink truncate">
-                    {item.name}
+            {projects.map((project) => {
+              const c = countsFor(project.id);
+              return (
+                <Link
+                  key={project.id}
+                  to={`/projects/${encodeURIComponent(project.id)}`}
+                  className="flex items-center justify-between py-2 px-3 rounded-[var(--radius-sm)] bg-raised hover:border-accent/50 border border-transparent transition-colors"
+                >
+                  <span className="text-sm font-medium text-ink">
+                    {project.name}
                   </span>
-                  <span className="text-xs text-ink-dim shrink-0">
-                    ({item.tool})
+                  <span className="text-xs text-ink-muted">
+                    {c.skills} skills · {c.instructions} AGENTS.md ·{" "}
+                    {c.memories} memories · {c.mcp} MCP
                   </span>
-                </div>
-                <span className="text-xs text-ink-muted shrink-0 ml-2">
-                  {new Date(item.lastModified).toLocaleDateString()}
-                </span>
-              </Link>
-            ))}
-            {recentContext.length === 0 && (
+                </Link>
+              );
+            })}
+            {projects.length === 0 && (
               <p className="text-sm text-ink-dim">
-                No memories or instructions found yet.
+                No projects yet. Add project directories in{" "}
+                <Link to="/settings" className="text-accent hover:underline">
+                  Settings
+                </Link>
+                .
               </p>
             )}
           </div>

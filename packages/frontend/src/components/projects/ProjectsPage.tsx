@@ -40,6 +40,7 @@ export default function ProjectsPage() {
   const projects = data?.projects || [];
 
   const countsByProject = new Map<string, ProjectCounts>();
+  const skillKeysByProject = new Map<string, Set<string>>();
   const countsFor = (projectId: string): ProjectCounts => {
     let c = countsByProject.get(projectId);
     if (!c) {
@@ -49,8 +50,20 @@ export default function ProjectsPage() {
     return c;
   };
 
+  // Unique physical skills — shared dirs (.agents/skills) are attributed to
+  // many agents but must count once per project.
   for (const s of skillsData?.skills || []) {
-    if (s.scope === "project" && s.projectId) countsFor(s.projectId).skills++;
+    if (s.scope === "project" && s.projectId) {
+      let set = skillKeysByProject.get(s.projectId);
+      if (!set) {
+        set = new Set();
+        skillKeysByProject.set(s.projectId, set);
+      }
+      set.add(`${s.name}|${s.path}`);
+    }
+  }
+  for (const [projectId, set] of skillKeysByProject) {
+    countsFor(projectId).skills = set.size;
   }
   for (const m of memoriesData?.memories || []) {
     if (m.projectId) countsFor(m.projectId).memories++;
