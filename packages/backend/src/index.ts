@@ -24,6 +24,15 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PORT = Number(process.env.PORT) || 3742;
 const HOST = process.env.HOST || "127.0.0.1";
 
+// Shell-specific one-liners for launching on a different port
+const altPortCommands = (port: number): string[] =>
+  process.platform === "win32"
+    ? [
+        `$env:PORT=${port}; skillhub-local        # PowerShell`,
+        `set PORT=${port} && skillhub-local       # cmd.exe`,
+      ]
+    : [`PORT=${port} skillhub-local`];
+
 // Request logging is opt-in (SKILLHUB_LOG=1 or a log level like "info").
 // Default is silent so the CLI doesn't spam the terminal.
 const loggerOption = process.env.SKILLHUB_LOG
@@ -123,12 +132,17 @@ try {
 
   if (alreadySkillHub) {
     console.log(`\n  SkillHub Local is already running at http://127.0.0.1:${PORT}`);
-    console.log("  Open the URL above in your browser.\n");
+    console.log("  Open the URL above in your browser.");
+    console.log("  To run a second instance on another port instead:");
+    for (const cmd of altPortCommands(PORT + 1)) console.log(`    ${cmd}`);
+    console.log("");
     process.exit(0);
   }
 
   console.error(`\n  Port ${PORT} is already in use by another program.`);
-  console.error(`  Start on a different port instead: PORT=${PORT + 1} skillhub-local\n`);
+  console.error("  To start SkillHub Local on a different port:");
+  for (const cmd of altPortCommands(PORT + 1)) console.error(`    ${cmd}`);
+  console.error("");
   process.exit(1);
 }
 
