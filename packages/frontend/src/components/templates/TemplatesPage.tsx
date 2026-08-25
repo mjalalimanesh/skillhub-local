@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -21,54 +21,66 @@ function TemplateCard({
   onApply: (t: AgentTemplate) => void;
   onDelete?: (t: AgentTemplate) => void;
 }) {
+  const navigate = useNavigate();
   const preview = template.content.trim().split("\n").slice(0, 3).join(" ").slice(0, 160);
+  const stop = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
 
   return (
-    <Card className="p-4 flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <FileText size={16} className="text-accent shrink-0" />
-          <h3 className="text-sm font-semibold text-ink truncate">{template.name}</h3>
-        </div>
-        <Badge variant={template.builtin ? "accent" : "success"}>
-          {template.builtin ? "Built-in" : "Custom"}
-        </Badge>
-      </div>
-
-      <p className="text-xs text-ink-muted">{template.description}</p>
-      {preview && (
-        <p className="text-xs text-ink-dim font-mono line-clamp-3 leading-relaxed">
-          {preview}
-        </p>
-      )}
-
-      <div className="mt-auto flex items-center justify-between pt-1">
-        <Button size="sm" onClick={() => onApply(template)}>
-          <FolderInput size={14} />
-          Add to project
-        </Button>
-        {!template.builtin && (
-          <div className="flex items-center gap-1">
-            <Link
-              to={`/templates/${encodeURIComponent(template.id)}/edit`}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:text-ink hover:bg-raised transition-colors"
-              title="Edit template"
-            >
-              <Pencil size={14} />
-            </Link>
-            {onDelete && (
-              <button
-                onClick={() => onDelete(template)}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:text-danger hover:bg-danger/10 transition-colors"
-                title="Delete template"
-              >
-                <Trash2 size={14} />
-              </button>
-            )}
+    <Link to={`/templates/${encodeURIComponent(template.id)}`} className="block">
+      <Card className="p-4 flex flex-col gap-3 hover:border-line-strong transition-colors group cursor-pointer h-full">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText size={16} className="text-accent shrink-0" />
+            <h3 className="text-sm font-semibold text-ink truncate group-hover:text-accent transition-colors">
+              {template.name}
+            </h3>
           </div>
+          <Badge variant={template.builtin ? "accent" : "success"}>
+            {template.builtin ? "Built-in" : "Custom"}
+          </Badge>
+        </div>
+
+        <p className="text-xs text-ink-muted">{template.description}</p>
+        {preview && (
+          <p className="text-xs text-ink-dim font-mono line-clamp-3 leading-relaxed">
+            {preview}
+          </p>
         )}
-      </div>
-    </Card>
+
+        <div className="mt-auto flex items-center justify-between pt-1">
+          <Button size="sm" onClick={(e) => { stop(e); onApply(template); }}>
+            <FolderInput size={14} />
+            Add to project
+          </Button>
+          {!template.builtin && (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={(e) => {
+                  stop(e);
+                  navigate(`/templates/${encodeURIComponent(template.id)}/edit`);
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:text-ink hover:bg-raised transition-colors"
+                title="Edit template"
+              >
+                <Pencil size={14} />
+              </button>
+              {onDelete && (
+                <button
+                  onClick={(e) => { stop(e); onDelete(template); }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-ink-muted hover:text-danger hover:bg-danger/10 transition-colors"
+                  title="Delete template"
+                >
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+    </Link>
   );
 }
 

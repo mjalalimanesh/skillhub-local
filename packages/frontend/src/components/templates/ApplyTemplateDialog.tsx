@@ -37,6 +37,7 @@ export function ApplyTemplateDialog({
   const [alsoClaude, setAlsoClaude] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showManual, setShowManual] = useState(false);
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects"],
@@ -51,6 +52,7 @@ export function ApplyTemplateDialog({
       setAlsoClaude(false);
       setConflict(false);
       setError(null);
+      setShowManual(false);
     }
   }, [open]);
 
@@ -102,42 +104,80 @@ export function ApplyTemplateDialog({
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-ink-muted">Project directory</label>
-            {projects.length > 0 && (
-              <Select
-                value={projects.some((p) => p.path === targetPath) ? targetPath : ""}
-                onValueChange={(v) => {
-                  setTargetPath(v);
-                  setConflict(false);
-                  setError(null);
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a configured project..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((p) => (
-                    <SelectItem key={p.id} value={p.path}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {projects.length > 0 ? (
+              <>
+                <Select
+                  value={projects.some((p) => p.path === targetPath) ? targetPath : ""}
+                  onValueChange={(v) => {
+                    setTargetPath(v);
+                    setConflict(false);
+                    setError(null);
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose a project..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.path}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {showManual ? (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="/path/to/project"
+                      value={targetPath}
+                      onChange={(e) => {
+                        setTargetPath(e.target.value);
+                        setConflict(false);
+                        setError(null);
+                      }}
+                      autoFocus
+                    />
+                    <Button variant="secondary" size="md" onClick={pickFolder} className="shrink-0">
+                      <FolderOpen size={14} />
+                      Browse
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowManual(true)}
+                    className="text-xs text-ink-dim hover:text-accent transition-colors"
+                  >
+                    Use another folder…
+                  </button>
+                )}
+              </>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-ink-muted">
+                  No projects configured yet — add directories under{" "}
+                  <Link to="/settings" className="text-accent hover:underline">
+                    Settings → Project Directories
+                  </Link>{" "}
+                  or pick a folder below.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="/path/to/project"
+                    value={targetPath}
+                    onChange={(e) => {
+                      setTargetPath(e.target.value);
+                      setConflict(false);
+                      setError(null);
+                    }}
+                  />
+                  <Button variant="secondary" size="md" onClick={pickFolder} className="shrink-0">
+                    <FolderOpen size={14} />
+                    Browse
+                  </Button>
+                </div>
+              </div>
             )}
-            <div className="flex gap-2">
-              <Input
-                placeholder="/path/to/project"
-                value={targetPath}
-                onChange={(e) => {
-                  setTargetPath(e.target.value);
-                  setConflict(false);
-                  setError(null);
-                }}
-              />
-              <Button variant="secondary" size="md" onClick={pickFolder} className="shrink-0">
-                <FolderOpen size={14} />
-                Browse
-              </Button>
-            </div>
           </div>
 
           <label className="flex items-center gap-2 text-sm text-ink-muted cursor-pointer">

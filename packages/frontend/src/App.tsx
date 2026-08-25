@@ -21,6 +21,7 @@ import InstructionsPage from "./components/instructions/InstructionsPage";
 import ProjectInstructionsPage from "./components/instructions/ProjectInstructionsPage";
 import InstructionDetailPage from "./components/instructions/InstructionDetailPage";
 import TemplatesPage from "./components/templates/TemplatesPage";
+import TemplateDetailPage from "./components/templates/TemplateDetailPage";
 import TemplateEditorPage from "./components/templates/TemplateEditorPage";
 import { api } from "./lib/api";
 import { useAppStore } from "./stores/app";
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/instructions/:instructionId" element={<InstructionDetailPage />} />
         <Route path="/templates" element={<TemplatesPage />} />
         <Route path="/templates/new" element={<TemplateEditorPage />} />
+        <Route path="/templates/:templateId" element={<TemplateDetailPage />} />
         <Route path="/templates/:templateId/edit" element={<TemplateEditorPage />} />
         <Route path="/store" element={<StorePage />} />
         <Route path="/plugins" element={<PluginsPage />} />
