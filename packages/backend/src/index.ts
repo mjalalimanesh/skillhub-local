@@ -7,6 +7,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getAuthToken } from "./services/auth.js";
+import { stopRunningServer, writePidFile, removePidFile } from "./services/lifecycle.js";
 import { loadConfig } from "./services/plugins.js";
 import { reconcileTrustedDirs } from "./services/trusted-dirs.js";
 import agentRoutes from "./routes/agents.js";
@@ -24,6 +25,14 @@ import mcpRoutes from "./routes/mcp.js";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PORT = Number(process.env.PORT) || 3742;
 const HOST = process.env.HOST || "127.0.0.1";
+
+// `skillhub-local stop` — terminate a running instance and exit before any
+// startup work happens.
+if (process.argv[2] === "stop") {
+  const result = await stopRunningServer(PORT);
+  console.log(`\n  ${result.message}\n`);
+  process.exit(result.ok ? 0 : 1);
+}
 
 // Shell-specific one-liners for launching on a different port
 const altPortCommands = (port: number): string[] =>
@@ -113,6 +122,7 @@ if (isProduction) {
 // Start server
 try {
   const address = await app.listen({ port: PORT, host: HOST });
+  await writePidFile();
   console.log(`\n  SkillHub Local running at ${address}`);
   console.log(`  Access token: ${authToken}\n`);
 } catch (err) {
@@ -135,6 +145,7 @@ try {
   if (alreadySkillHub) {
     console.log(`\n  SkillHub Local is already running at http://127.0.0.1:${PORT}`);
     console.log("  Open the URL above in your browser.");
+    console.log("  To stop it: skillhub-local stop (or: npm run stop)");
     console.log("  To run a second instance on another port instead:");
     for (const cmd of altPortCommands(PORT + 1)) console.log(`    ${cmd}`);
     console.log("");
@@ -165,3 +176,22 @@ wss.on("connection", (ws) => {
   ws.on("close", () => wsClients.delete(ws));
   ws.on("error", () => wsClients.delete(ws));
 });
+
+// Graceful shutdown: close the WebSocket server and Fastify, clear the PID
+// file. Bounded so a stuck connection can't hang the exit forever.
+let shuttingDown = false;
+const shutdown = async (signal: string) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`\n  Received ${signal} — shutting down.`);
+  try {
+    for (const client of wsClients) client.terminate();
+    wss.close();
+    await Promise.race([app.close(), new Promise((r) => setTimeout(r, 3000))]);
+  } finally {
+    removePidFile();
+    process.exit(0);
+  }
+};
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
