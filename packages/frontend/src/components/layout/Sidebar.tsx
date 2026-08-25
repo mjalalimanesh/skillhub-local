@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   Bot,
+  FolderOpen,
   Package,
   Table2,
   Store,
@@ -28,6 +29,7 @@ const sections: { label: string; items: NavItem[] }[] = [
     items: [
       { to: "/", icon: LayoutDashboard, label: "Dashboard" },
       { to: "/agents", icon: Bot, label: "Agents" },
+      { to: "/projects", icon: FolderOpen, label: "Projects" },
       { to: "/matrix", icon: Table2, label: "Skill Matrix" },
     ],
   },

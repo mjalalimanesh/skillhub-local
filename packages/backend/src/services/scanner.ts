@@ -1,11 +1,14 @@
 import { readdir, stat, readFile, access } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
-import { homedir, platform } from "node:os";
+import { platform } from "node:os";
 import { createHash } from "node:crypto";
 import matter from "gray-matter";
 import { detectInstalledPlugins } from "./installed-plugins.js";
 import { detectMcpServers } from "./mcp-scanner.js";
 import { loadConfig } from "./plugins.js";
+import { discoverProjects } from "./projects.js";
+import type { ProjectRoot } from "./projects.js";
+import { expandHome } from "./paths.js";
 
 interface AgentDef {
   id: string;
@@ -38,20 +41,6 @@ const AGENT_DEFINITIONS: AgentDef[] = [
   { id: "zed", name: "Zed", globalDir: "~/.agents/skills", projectDir: ".agents/skills", icon: "zed" },
   { id: "warp", name: "Warp", globalDir: "~/.agents/skills", projectDir: ".agents/skills", icon: "warp" },
 ];
-
-function expandHome(p: string): string {
-  if (p.startsWith("~")) {
-    const rest = p.slice(1);
-    // Hermes uses %LOCALAPPDATA% on Windows, ~/.hermes on Unix
-    if ((rest.startsWith("/.hermes") || rest === "/.hermes") && platform() === "win32") {
-      // ~/.hermes/* → ~/AppData/Local/hermes/*
-      const hermesRest = rest.replace(/^\/\.hermes/, "/hermes");
-      return join(homedir(), "AppData", "Local", hermesRest);
-    }
-    return join(homedir(), rest);
-  }
-  return resolve(p);
-}
 
 interface SkillEntry {
   name: string;
@@ -155,6 +144,73 @@ export interface InstalledSkill {
   hasReferences: boolean;
   pluginId?: string;
   pluginName?: string;
+  projectId?: string;
+  projectName?: string;
+  projectRoot?: string;
+}
+
+interface ProjectSkillHit {
+  agentId: string;
+  entry: SkillEntry;
+  project: ProjectRoot;
+}
+
+// Scan each project's per-agent skill directories (e.g. .claude/skills,
+// .agents/skills). Agents sharing the same relative dir are grouped so the
+// directory is only walked once, then hits are attributed to every agent
+// that reads that location — mirroring how shared global dirs behave.
+async function scanProjectSkillHits(
+  projects: ProjectRoot[],
+  agents: AgentDef[]
+): Promise<ProjectSkillHit[]> {
+  const hits: ProjectSkillHit[] = [];
+  if (projects.length === 0 || agents.length === 0) return hits;
+
+  const agentsByRelDir = new Map<string, AgentDef[]>();
+  for (const agent of agents) {
+    const list = agentsByRelDir.get(agent.projectDir) || [];
+    list.push(agent);
+    agentsByRelDir.set(agent.projectDir, list);
+  }
+
+  for (const project of projects) {
+    for (const [relDir, dirAgents] of agentsByRelDir) {
+      const entries = await scanSkillDir(join(project.path, relDir));
+      for (const entry of entries) {
+        for (const agent of dirAgents) {
+          hits.push({ agentId: agent.id, entry, project });
+        }
+      }
+    }
+  }
+
+  return hits;
+}
+
+function projectHitToInstalledSkill(hit: ProjectSkillHit): InstalledSkill {
+  return {
+    id: `${hit.agentId}::${hit.entry.name}@${hit.project.name}`,
+    name: hit.entry.name,
+    description: hit.entry.description,
+    agentId: hit.agentId,
+    scope: "project",
+    path: hit.entry.path,
+    frontmatter: hit.entry.frontmatter,
+    hasScripts: hit.entry.hasScripts,
+    hasAssets: hit.entry.hasAssets,
+    hasReferences: hit.entry.hasReferences,
+    projectId: hit.project.id,
+    projectName: hit.project.name,
+    projectRoot: hit.project.path,
+  };
+}
+
+async function getProjectSkills(agentId?: string): Promise<InstalledSkill[]> {
+  const config = await loadConfig();
+  const projects = await discoverProjects(config.projectDirs || []);
+  const agents = AGENT_DEFINITIONS.filter((a) => !agentId || a.id === agentId);
+  const hits = await scanProjectSkillHits(projects, agents);
+  return hits.map(projectHitToInstalledSkill);
 }
 
 export async function detectAgents(): Promise<DetectedAgent[]> {
@@ -162,6 +218,14 @@ export async function detectAgents(): Promise<DetectedAgent[]> {
   const allPlugins = await detectInstalledPlugins();
   const config = await loadConfig();
   const allMcpServers = await detectMcpServers(config.projectDirs || []);
+
+  let projectHits: ProjectSkillHit[] = [];
+  try {
+    const projects = await discoverProjects(config.projectDirs || []);
+    projectHits = await scanProjectSkillHits(projects, AGENT_DEFINITIONS);
+  } catch {
+    // project discovery failed — counts just stay global-only
+  }
 
   for (const agent of AGENT_DEFINITIONS) {
     const globalDir = expandHome(agent.globalDir);
@@ -188,6 +252,9 @@ export async function detectAgents(): Promise<DetectedAgent[]> {
     const agentPlugins = allPlugins.filter((p) => p.agentId === agent.id);
     const pluginSkillCount = agentPlugins.reduce((sum, p) => sum + p.skillCount, 0);
     skillCount += pluginSkillCount;
+
+    // Count project-scoped skills for this agent
+    skillCount += projectHits.filter((h) => h.agentId === agent.id).length;
 
     // Count MCP servers configured for this agent
     const mcpCount = allMcpServers.filter((s) => s.agentId === agent.id).length;
@@ -253,6 +320,15 @@ export async function scanAllSkills(agentId?: string): Promise<InstalledSkill[]>
         }
       }
     }
+  }
+
+  // Project-scoped skills from configured project directories.
+  // Appended after global skills so name-based lookups prefer the global copy.
+  try {
+    const projectSkills = await getProjectSkills(agentId);
+    allSkills.push(...projectSkills);
+  } catch {
+    // project discovery failed — return global + plugin skills only
   }
 
   // Merge plugin skills
@@ -363,16 +439,59 @@ export async function writeSkillFile(filePath: string, content: string): Promise
   await writeFile(filePath, content, "utf-8");
 }
 
-export function isUnderKnownSkillDir(p: string): boolean {
-  const allowedBases = AGENT_DEFINITIONS.flatMap((a) => [
-    expandHome(a.globalDir),
-    ...(a.extraDirs || []).map(expandHome),
-  ]);
+function isUnderBase(p: string, bases: string[]): boolean {
   const resolved = resolve(p).replace(/[\\/]/g, "/");
-  return allowedBases.some((base) => {
+  return bases.some((base) => {
     const rp = resolve(base).replace(/[\\/]/g, "/");
     return resolved.startsWith(rp + "/") || resolved === rp;
   });
+}
+
+// All skill directories writes may target: every agent's global/extra dirs
+// plus each discovered project's per-agent skill dirs. Project directories
+// are pre-trusted via reconcileTrustedDirs at startup/config-save.
+export async function getKnownSkillBases(): Promise<string[]> {
+  const globalBases = AGENT_DEFINITIONS.flatMap((a) => [
+    expandHome(a.globalDir),
+    ...(a.extraDirs || []).map(expandHome),
+  ]);
+  try {
+    const config = await loadConfig();
+    const projects = await discoverProjects(config.projectDirs || []);
+    for (const project of projects) {
+      for (const agent of AGENT_DEFINITIONS) {
+        globalBases.push(join(project.path, agent.projectDir));
+      }
+    }
+  } catch {
+    // fall back to global dirs only
+  }
+  return globalBases;
+}
+
+export async function isUnderKnownSkillDir(
+  p: string,
+  knownBases?: string[]
+): Promise<boolean> {
+  const bases = knownBases || (await getKnownSkillBases());
+  return isUnderBase(p, bases);
+}
+
+// True only if the path sits inside a project-scoped skill directory.
+export async function isUnderProjectSkillDir(p: string): Promise<boolean> {
+  const projectBases: string[] = [];
+  try {
+    const config = await loadConfig();
+    const projects = await discoverProjects(config.projectDirs || []);
+    for (const project of projects) {
+      for (const agent of AGENT_DEFINITIONS) {
+        projectBases.push(join(project.path, agent.projectDir));
+      }
+    }
+  } catch {
+    // no projects configured — nothing is project-scoped
+  }
+  return isUnderBase(p, projectBases);
 }
 
 export async function copySkillToAgents(
@@ -621,7 +740,11 @@ function buildOverlapClusters(
 export async function findSkillOverlaps(
   agentId?: string
 ): Promise<SkillOverlapGroup[]> {
-  const allSkills = await scanAllSkills(agentId);
+  // Overlap detection stays global-only: project copies of the same skill
+  // would flood the view without adding actionable signal.
+  const allSkills = (await scanAllSkills(agentId)).filter(
+    (s) => s.scope !== "project"
+  );
   const agents = AGENT_DEFINITIONS;
   const agentNameMap = new Map(agents.map((a) => [a.id, a.name]));
 

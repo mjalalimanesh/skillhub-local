@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { scanAllSkills, copySkillToAgents, isUnderKnownSkillDir, findSkillOverlaps, AGENT_DEFINITIONS, expandHome } from "../services/scanner.js";
+import { scanAllSkills, copySkillToAgents, isUnderKnownSkillDir, isUnderProjectSkillDir, findSkillOverlaps, AGENT_DEFINITIONS, expandHome } from "../services/scanner.js";
 import { runSkillsCLI, validateSource, validateSkillName, searchSkillsCLI } from "../services/cli.js";
 
 interface WSProgressEvent {
@@ -104,6 +104,7 @@ export default async function skillRoutes(app: FastifyInstance) {
     }
 
     // Delete the actual skill directory from disk if path provided
+    let removedFromProject = false;
     if (body.skillPath) {
       const { access, rm } = await import("node:fs/promises");
       const { join } = await import("node:path");
@@ -116,13 +117,21 @@ export default async function skillRoutes(app: FastifyInstance) {
       }
 
       // Confirm it's under a known skill directory
-      if (!isUnderKnownSkillDir(body.skillPath)) {
+      const isProjectSkill = await isUnderProjectSkillDir(body.skillPath);
+      if (!isProjectSkill && !(await isUnderKnownSkillDir(body.skillPath))) {
         return reply.code(400).send({ error: "Invalid skill path: not under a known skill directory" });
       }
+      removedFromProject = isProjectSkill;
 
       try {
         await rm(body.skillPath, { recursive: true, force: true });
       } catch {}
+    }
+
+    // The skills CLI only manages global installs — project-scoped copies
+    // are plain directories, so deleting them above is the whole operation.
+    if (removedFromProject) {
+      return reply.code(200).send({ stdout: "", stderr: "", exitCode: 0 });
     }
 
     const args = ["remove", "--skill", body.skill, "--yes"];

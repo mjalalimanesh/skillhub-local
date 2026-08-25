@@ -11,6 +11,7 @@ import { loadConfig } from "./services/plugins.js";
 import { reconcileTrustedDirs } from "./services/trusted-dirs.js";
 import agentRoutes from "./routes/agents.js";
 import skillRoutes from "./routes/skills.js";
+import projectRoutes from "./routes/projects.js";
 import configRoutes from "./routes/config.js";
 import healthRoutes from "./routes/health.js";
 import memoriesRoutes from "./routes/memories.js";
@@ -74,6 +75,7 @@ app.decorate("wsBroadcast", broadcast);
 // Register routes
 await app.register(agentRoutes);
 await app.register(skillRoutes);
+await app.register(projectRoutes);
 await app.register(configRoutes);
 await app.register(healthRoutes);
 await app.register(memoriesRoutes);

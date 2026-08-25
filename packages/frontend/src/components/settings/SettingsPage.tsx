@@ -44,8 +44,11 @@ export default function SettingsPage() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["config"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["memories"] });
       queryClient.invalidateQueries({ queryKey: ["instructions"] });
+      queryClient.invalidateQueries({ queryKey: ["skills"] });
+      queryClient.invalidateQueries({ queryKey: ["agents"] });
       addToast({ type: "success", title: "Project directories saved" });
     },
   });
@@ -79,7 +82,9 @@ export default function SettingsPage() {
         addToast({
           type: "error",
           title: "Folder picker unavailable",
-          description: "Install zenity (GNOME) or kdialog (KDE) on Linux.",
+          description:
+            err?.message ||
+            "The system folder dialog could not be opened. Type a path manually instead.",
         });
       }
     } finally {
@@ -199,6 +204,9 @@ export default function SettingsPage() {
           </div>
           <div className="text-xs text-ink-dim mt-1">
             Saved directories are trusted for editing instructions and memories.
+          </div>
+          <div className="text-xs text-ink-dim mt-1">
+            Project-level skills (e.g. .claude/skills, .agents/skills) are discovered too and listed under Projects.
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { expandHome } from "./scanner.js";
+import { expandHome } from "./paths.js";
 
 export interface ProjectRoot {
   id: string;

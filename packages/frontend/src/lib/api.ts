@@ -1,4 +1,4 @@
-import type { SkillFile, SkillFileWriteResult } from "@/lib/types";
+import type { SkillFile, SkillFileWriteResult, ProjectRoot } from "@/lib/types";
 
 const BASE = "";
 
@@ -40,7 +40,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       if (authToken) return request(path, options);
     }
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || res.statusText);
+    const detail = err.detail ? `: ${String(err.detail).slice(0, 300)}` : "";
+    throw new Error(`${err.error || res.statusText}${detail}`);
   }
   return res.json();
 }
@@ -54,28 +55,34 @@ export const api = {
   getAgentSkills: (agentId: string) =>
     request<{ agent: any; skills: any[] }>(`/api/agents/${agentId}/skills`),
 
-  getSkillDetail: (agentId: string, skillName: string) =>
-    request<{ skill: any; content: string }>(`/api/agents/${agentId}/skills/${skillName}`),
+  getSkillDetail: (agentId: string, skillName: string, project?: string) =>
+    request<{ skill: any; content: string }>(
+      `/api/agents/${agentId}/skills/${skillName}${project ? `?project=${encodeURIComponent(project)}` : ""}`
+    ),
 
-  getSkillFiles: (agentId: string, skillName: string) =>
+  getSkillFiles: (agentId: string, skillName: string, project?: string) =>
     request<{ files: SkillFile[] }>(
-      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files`
+      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files${project ? `?project=${encodeURIComponent(project)}` : ""}`
     ),
 
-  getSkillFileContent: (agentId: string, skillName: string, path: string) =>
-    request<{ content: string | null; isBinary: boolean }>(
-      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files/content?path=${encodeURIComponent(path)}`
-    ),
+  getSkillFileContent: (agentId: string, skillName: string, path: string, project?: string) => {
+    const qs = new URLSearchParams({ path });
+    if (project) qs.set("project", project);
+    return request<{ content: string | null; isBinary: boolean }>(
+      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files/content?${qs.toString()}`
+    );
+  },
 
   saveSkillFileContent: (
     agentId: string,
     skillName: string,
     path: string,
     content: string,
-    syncToInstances?: boolean
+    syncToInstances?: boolean,
+    project?: string
   ) =>
     request<{ success: boolean; results?: SkillFileWriteResult[] }>(
-      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files/content`,
+      `/api/agents/${agentId}/skills/${encodeURIComponent(skillName)}/files/content${project ? `?project=${encodeURIComponent(project)}` : ""}`,
       {
         method: "PUT",
         body: JSON.stringify({ path, content, syncToInstances }),
@@ -89,6 +96,9 @@ export const api = {
     const q = qs.toString();
     return request<{ skills: any[]; total: number }>(`/api/skills${q ? `?${q}` : ""}`);
   },
+
+  getProjects: () =>
+    request<{ projects: ProjectRoot[]; total: number }>("/api/projects"),
 
   getSkillOverlaps: (agent?: string) => {
     const qs = agent ? `?agent=${encodeURIComponent(agent)}` : "";

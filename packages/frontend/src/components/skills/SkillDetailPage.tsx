@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAppStore } from "@/stores/app";
@@ -39,6 +39,8 @@ function formatSize(bytes: number): string {
 
 export default function SkillDetailPage() {
   const { skillName } = useParams<{ skillName: string }>();
+  const [searchParams] = useSearchParams();
+  const projectParam = searchParams.get("project") || undefined;
   const queryClient = useQueryClient();
   const agents = useAppStore((s) => s.agents);
   const addToast = useToastStore((s) => s.addToast);
@@ -59,11 +61,17 @@ export default function SkillDetailPage() {
     (s) => s.name === skillName
   );
 
-  const primaryInstance = instances[0];
+  // When opened from a project context, show that exact copy — a global
+  // skill with the same name must not shadow it.
+  const primaryInstance = projectParam
+    ? (instances.find(
+        (s) => s.scope === "project" && s.projectId === projectParam
+      ) || instances[0])
+    : instances[0];
 
   const { data: filesData, isLoading: filesLoading } = useQuery({
-    queryKey: ["skillFiles", primaryInstance?.agentId, skillName],
-    queryFn: () => api.getSkillFiles(primaryInstance!.agentId, skillName!),
+    queryKey: ["skillFiles", primaryInstance?.agentId, skillName, primaryInstance?.projectId],
+    queryFn: () => api.getSkillFiles(primaryInstance!.agentId, skillName!, primaryInstance!.projectId),
     enabled: !!primaryInstance,
   });
 
@@ -85,8 +93,8 @@ export default function SkillDetailPage() {
   );
 
   const { data: contentData, isLoading: contentLoading } = useQuery({
-    queryKey: ["skillFileContent", primaryInstance?.agentId, skillName, selectedPath],
-    queryFn: () => api.getSkillFileContent(primaryInstance!.agentId, skillName!, selectedPath!),
+    queryKey: ["skillFileContent", primaryInstance?.agentId, skillName, primaryInstance?.projectId, selectedPath],
+    queryFn: () => api.getSkillFileContent(primaryInstance!.agentId, skillName!, selectedPath!, primaryInstance!.projectId),
     enabled: !!primaryInstance && !!selectedPath,
   });
 
@@ -150,13 +158,14 @@ export default function SkillDetailPage() {
         skillName!,
         selectedPath!,
         editorContent,
-        syncToInstances
+        syncToInstances,
+        primaryInstance!.projectId
       ),
     onSuccess: (data) => {
       setIsDirty(false);
       queryClient.invalidateQueries({ queryKey: ["skillDetail", primaryInstance?.agentId, skillName] });
-      queryClient.invalidateQueries({ queryKey: ["skillFileContent", primaryInstance?.agentId, skillName] });
-      queryClient.invalidateQueries({ queryKey: ["skillFiles", primaryInstance?.agentId, skillName] });
+      queryClient.invalidateQueries({ queryKey: ["skillFileContent", primaryInstance?.agentId, skillName, primaryInstance?.projectId] });
+      queryClient.invalidateQueries({ queryKey: ["skillFiles", primaryInstance?.agentId, skillName, primaryInstance?.projectId] });
       const results = data.results || [];
       const updated = results.filter((r) => r.success && !r.skipped).length;
       const skipped = results.filter((r) => r.skipped).length;
@@ -267,7 +276,13 @@ export default function SkillDetailPage() {
                   }`}
                 />
                 {agent?.name || inst.agentId}
-                <span className="text-ink-dim">({inst.scope})</span>
+                <span className="text-ink-dim">
+                  (
+                  {inst.scope === "project" && inst.projectName
+                    ? inst.projectName
+                    : inst.scope}
+                  )
+                </span>
               </Badge>
             );
           })}

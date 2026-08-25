@@ -21,6 +21,15 @@ export interface Skill {
   hasReferences: boolean;
   pluginId?: string;
   pluginName?: string;
+  projectId?: string;
+  projectName?: string;
+  projectRoot?: string;
+}
+
+export interface ProjectRoot {
+  id: string;
+  name: string;
+  path: string;
 }
 
 export interface SkillFile {

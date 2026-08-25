@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyToAgentsDialog } from "./CopyToAgentsDialog";
-import { Package, Trash2, RefreshCw, Copy, Puzzle, Layers, ChevronDown, ChevronRight } from "lucide-react";
+import { Package, Trash2, RefreshCw, Copy, Puzzle, Layers, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 import { useToastStore } from "@/components/ui/toaster";
 
 export default function SkillsPage() {
@@ -148,7 +148,11 @@ export default function SkillsPage() {
               className="flex items-center justify-between px-4 py-3 hover:border-line-strong transition-colors group"
             >
               <Link
-                to={`/skills/${skill.name}`}
+                to={
+                  skill.scope === "project" && skill.projectId
+                    ? `/skills/${skill.name}?project=${encodeURIComponent(skill.projectId)}`
+                    : `/skills/${skill.name}`
+                }
                 className="flex items-center gap-3 flex-1 min-w-0"
               >
                 {skill.pluginId ? (
@@ -176,8 +180,16 @@ export default function SkillsPage() {
                 {skill.pluginId && (
                   <Badge variant="accent" className="text-xs">plugin</Badge>
                 )}
+                {skill.scope === "project" && skill.projectName && (
+                  <Badge variant="success" className="text-xs gap-1">
+                    <FolderOpen size={10} />
+                    {skill.projectName}
+                  </Badge>
+                )}
                 <Badge variant="default">{skill.agentId}</Badge>
-                <span className="text-xs text-ink-dim">{skill.scope}</span>
+                <Badge variant={skill.scope === "global" ? "accent" : "success"} className="text-xs">
+                  {skill.scope}
+                </Badge>
                 <div className="flex gap-1">
                   <Button
                     variant="ghost"

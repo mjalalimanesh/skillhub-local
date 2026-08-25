@@ -8,10 +8,19 @@ import {
   readSkillFile,
   writeSkillFile,
   isUnderKnownSkillDir,
+  getKnownSkillBases,
 } from "../services/scanner.js";
 
-async function findSkill(agentId: string, skillName: string) {
+async function findSkill(agentId: string, skillName: string, projectId?: string) {
   const skills = await scanAllSkills(agentId);
+  if (projectId) {
+    // Prefer the exact project copy when one is requested — a global skill
+    // with the same name must not shadow it.
+    const match = skills.find(
+      (s) => s.name === skillName && s.scope === "project" && s.projectId === projectId
+    );
+    if (match) return match;
+  }
   return skills.find((s) => s.name === skillName);
 }
 
@@ -37,7 +46,8 @@ export default async function agentRoutes(app: FastifyInstance) {
       agentId: string;
       skillName: string;
     };
-    const skill = await findSkill(agentId, skillName);
+    const { project } = request.query as { project?: string };
+    const skill = await findSkill(agentId, skillName, project);
     if (!skill) {
       return reply.code(404).send({ error: "Skill not found" });
     }
@@ -50,7 +60,8 @@ export default async function agentRoutes(app: FastifyInstance) {
       agentId: string;
       skillName: string;
     };
-    const skill = await findSkill(agentId, skillName);
+    const { project } = request.query as { project?: string };
+    const skill = await findSkill(agentId, skillName, project);
     if (!skill) {
       return reply.code(404).send({ error: "Skill not found" });
     }
@@ -63,10 +74,10 @@ export default async function agentRoutes(app: FastifyInstance) {
       agentId: string;
       skillName: string;
     };
-    const { path } = request.query as { path?: string };
+    const { path, project } = request.query as { path?: string; project?: string };
     if (!path) return reply.code(400).send({ error: "path required" });
 
-    const skill = await findSkill(agentId, skillName);
+    const skill = await findSkill(agentId, skillName, project);
     if (!skill) {
       return reply.code(404).send({ error: "Skill not found" });
     }
@@ -105,19 +116,21 @@ export default async function agentRoutes(app: FastifyInstance) {
       content?: string;
       syncToInstances?: boolean;
     };
+    const { project } = request.query as { project?: string };
     if (!body.path || body.content === undefined) {
       return reply.code(400).send({ error: "path and content required" });
     }
 
     const allSkills = await scanAllSkills();
-    const target = allSkills.find((s) => s.agentId === agentId && s.name === skillName);
+    const target = await findSkill(agentId, skillName, project);
     if (!target) {
       return reply.code(404).send({ error: "Skill not found" });
     }
     if (target.pluginId) {
       return reply.code(403).send({ error: "Plugin skills are read-only" });
     }
-    if (!isUnderKnownSkillDir(target.path)) {
+    const knownBases = await getKnownSkillBases();
+    if (!(await isUnderKnownSkillDir(target.path, knownBases))) {
       return reply.code(403).send({ error: "Skill not under a known skill directory" });
     }
 
@@ -141,9 +154,21 @@ export default async function agentRoutes(app: FastifyInstance) {
 
     const relativePath = relative(targetRoot, requested);
 
-    const syncTargets = body.syncToInstances !== false
-      ? allSkills.filter((s) => s.name === skillName && !s.pluginId && isUnderKnownSkillDir(s.path))
-      : [target];
+    let syncTargets: typeof allSkills;
+    if (body.syncToInstances !== false) {
+      syncTargets = [];
+      for (const s of allSkills) {
+        if (
+          s.name === skillName &&
+          !s.pluginId &&
+          (await isUnderKnownSkillDir(s.path, knownBases))
+        ) {
+          syncTargets.push(s);
+        }
+      }
+    } else {
+      syncTargets = [target];
+    }
 
     const results: {
       agentId: string;

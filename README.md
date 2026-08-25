@@ -37,7 +37,8 @@ Surf stale memories, duplicate skills, and instruction files spread across proje
 ## Features
 
 - **Agent detection** — auto-detects 16 agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot, Windsurf, Cline, Amp, Continue, Roo Code, Goose, Antigravity, Hermes, Zed, Warp), showing install status plus skill and plugin counts per agent
-- **Skill management** — scan, install, remove, and update skills (parsed from `SKILL.md`), copy/symlink between agents, with per-agent install status and raw content
+- **Projects** — point SkillHub at your code folders (Settings → Project Directories); each subdirectory becomes a project showing its skills, AGENTS.md files, memories, and MCP servers in one view
+- **Skill management** — scan global **and** per-project skills (`.claude/skills`, `.agents/skills`, `.roo/skills`, … parsed from `SKILL.md`), install, remove, update, copy/symlink between agents, with per-agent install status and raw content editing
 - **Skill store** — browse and search the skills.sh registry, one-click install to all detected agents
 - **MCP servers** — scan server configs (JSON/JSONC/TOML) across 10 agents, live tool discovery, OAuth flow, and per-server header/env credential overrides
 - **Memories** — scan AI-learned context from Codex, Claude Code, Windsurf, Cline, and Gemini CLI; global and project-scoped, with inline editing and re-scan
@@ -107,6 +108,7 @@ packages/
 │       │   ├── dashboard/   # DashboardPage (stats, activity feed)
 │       │   ├── skills/      # SkillsPage, SkillDetailPage, MatrixPage, CopyToAgentsDialog
 │       │   ├── agents/      # AgentsPage (agent cards with skill/plugin counts)
+│       │   ├── projects/    # ProjectsPage, ProjectDetailPage (per-project context)
 │       │   ├── store/       # StorePage (search, trending, install)
 │       │   ├── mcp/         # McpPage, McpDetailPage (servers, tool discovery, OAuth)
 │       │   ├── plugins/     # PluginsPage (detected + custom plugins, expandable)
@@ -120,6 +122,6 @@ packages/
 │       └── lib/           # API client, types, utils
 └── backend/               # Fastify server (also the skillhub-local CLI entrypoint)
     └── src/
-        ├── routes/        # REST endpoints (agents, skills, config, memories, instructions, browse, mcp, auth, health)
+        ├── routes/        # REST endpoints (agents, skills, projects, config, memories, instructions, browse, mcp, auth, health)
         └── services/      # Scanner, CLI executor, store API, plugins, memory/instruction/mcp scanners, mcp client + OAuth
 ```

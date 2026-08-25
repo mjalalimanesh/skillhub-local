@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Layout } from "./components/layout/Layout";
 import DashboardPage from "./components/dashboard/DashboardPage";
 import AgentsPage from "./components/agents/AgentsPage";
+import ProjectsPage from "./components/projects/ProjectsPage";
+import ProjectDetailPage from "./components/projects/ProjectDetailPage";
 import SkillsPage from "./components/skills/SkillsPage";
 import SkillDetailPage from "./components/skills/SkillDetailPage";
 import MatrixPage from "./components/skills/MatrixPage";
@@ -40,6 +42,8 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/agents" element={<AgentsPage />} />
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
         <Route path="/skills/:skillName" element={<SkillDetailPage />} />
         <Route path="/skills" element={<SkillsPage />} />
         <Route path="/matrix" element={<MatrixPage />} />
