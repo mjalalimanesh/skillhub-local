@@ -11,12 +11,20 @@ Using Claude + Codex + Cursor? Your agent context is probably scattered across a
 
 ## Install
 
+Requires Node.js (v18+).
+
 ```bash
 npm install -g skillhub-local
 skillhub-local
 ```
 
 Open `http://localhost:3742`. That's it.
+
+SkillHub uses the [skills](https://www.npmjs.com/package/skills) CLI under the hood for install/remove/update/search. It prefers a globally installed binary and falls back to `npx skills` (or `npx skills@<version>` via `SKILLHUB_SKILLS_VERSION`):
+
+```bash
+npm install -g skills
+```
 
 ## What you can do
 
@@ -48,14 +56,6 @@ Surf stale memories, duplicate skills, and instruction files spread across proje
 - **Settings** — default scope, install method (symlink/copy), theme, telemetry, and project directories with a native OS folder picker
 
 ## Setup details
-
-Requires [Node.js](https://nodejs.org/) (v18+).
-
-SkillHub uses the [skills](https://www.npmjs.com/package/skills) CLI under the hood for install/remove/update/search. It prefers a globally installed binary and falls back to `npx skills` (or `npx skills@<version>` via `SKILLHUB_SKILLS_VERSION`):
-
-```bash
-npm install -g skills
-```
 
 Development from source:
 
