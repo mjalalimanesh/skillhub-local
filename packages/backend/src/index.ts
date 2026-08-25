@@ -100,9 +100,37 @@ if (isProduction) {
 }
 
 // Start server
-const address = await app.listen({ port: PORT, host: HOST });
-console.log(`\n  SkillHub Local running at ${address}`);
-console.log(`  Access token: ${authToken}\n`);
+try {
+  const address = await app.listen({ port: PORT, host: HOST });
+  console.log(`\n  SkillHub Local running at ${address}`);
+  console.log(`  Access token: ${authToken}\n`);
+} catch (err) {
+  if ((err as NodeJS.ErrnoException | undefined)?.code !== "EADDRINUSE") throw err;
+
+  // The port is taken. If the thing already answering on it looks like
+  // SkillHub itself, a second launch is a no-op — point at it and exit
+  // cleanly instead of dumping a stack trace.
+  let alreadySkillHub = false;
+  try {
+    const res = await fetch(`http://127.0.0.1:${PORT}/api/health`, {
+      signal: AbortSignal.timeout(1500),
+    });
+    const body = (await res.json()) as { status?: string };
+    alreadySkillHub = res.ok && body?.status === "ok";
+  } catch {
+    // Not reachable, or not SkillHub-shaped
+  }
+
+  if (alreadySkillHub) {
+    console.log(`\n  SkillHub Local is already running at http://127.0.0.1:${PORT}`);
+    console.log("  Open the URL above in your browser.\n");
+    process.exit(0);
+  }
+
+  console.error(`\n  Port ${PORT} is already in use by another program.`);
+  console.error(`  Start on a different port instead: PORT=${PORT + 1} skillhub-local\n`);
+  process.exit(1);
+}
 
 // WebSocket server — token required in query string since any page can open
 // a raw WebSocket to this server regardless of CORS
