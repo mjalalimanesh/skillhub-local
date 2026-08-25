@@ -39,6 +39,10 @@ export async function discoverProjects(projectDirs: string[]): Promise<ProjectRo
           continue;
         }
 
+        const childEntries = await readdir(childPath, { withFileTypes: true }).catch(() => []);
+        const hasFile = childEntries.some((c) => c.isFile());
+        if (!hasFile) continue;
+
         const projectId = hashString(childPath);
         projects.push({
           id: projectId,
