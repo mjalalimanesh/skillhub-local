@@ -1,10 +1,10 @@
 {
   "name": "@skillhub/backend",
-  "version": "0.2.0",
+  "version": "0.2.16",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --watch --import tsx src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",

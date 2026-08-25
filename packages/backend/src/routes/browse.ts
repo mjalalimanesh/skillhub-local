@@ -11,58 +11,137 @@ function expandHome(p: string): string {
   return resolve(p);
 }
 
-function openNativeFolderPicker(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const os = platform();
+// How long a native picker dialog may stay open before the backend kills it
+// and frees the single-flight slot.
+const PICK_TIMEOUT_MS = 3 * 60 * 1000;
 
-    if (os === "darwin") {
-      const script = `POSIX path of (choose folder)`;
-      execFile("osascript", ["-e", script], (err, stdout) => {
-        if (err) return reject(err);
-        const path = stdout.trim().replace(/\/$/, "");
-        if (!path) return reject(new Error("cancelled"));
-        resolve(path);
-      });
-    } else if (os === "win32") {
-      const ps = `
-        Add-Type -AssemblyName System.Windows.Forms | Out-Null
-        $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-        $dialog.Description = "Select a project directory"
-        $dialog.ShowNewFolderButton = $true
-        # Owner form raised to the front so the dialog never opens behind other windows
-        $owner = New-Object System.Windows.Forms.Form
-        $owner.TopMost = $true
-        if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) {
-          $dialog.SelectedPath
-        }
-      `;
-      const psArgs = ["-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-Command", ps];
-      execFile("powershell.exe", psArgs, (err, stdout, stderr) => {
-        if (err) {
-          const detail = stderr?.trim() || err.message;
-          if (/canceled|cancelled/i.test(detail) && !stdout.trim()) return reject(new Error("cancelled"));
-          return reject(new Error(detail));
-        }
-        const path = stdout.trim();
-        if (!path) return reject(new Error("cancelled"));
-        resolve(path);
-      });
-    } else {
-      // Try zenity (GNOME/GTK), then kdialog (KDE)
-      execFile("zenity", ["--file-selection", "--directory"], (err, stdout) => {
-        if (!err && stdout.trim()) {
-          return resolve(stdout.trim());
-        }
-        execFile("kdialog", ["--getexistingdirectory"], (err2, stdout2) => {
-          if (!err2 && stdout2.trim()) {
-            return resolve(stdout2.trim());
-          }
-          reject(new Error("No folder picker available. Install zenity or kdialog."));
-        });
-      });
-    }
+type ExecResult = { stdout: string; stderr: string };
+type ExecError = Error & { code?: string | number | null; stderr?: string };
+
+function execFileWithTimeout(file: string, args: string[]): Promise<ExecResult> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const child = execFile(file, args, { windowsHide: true }, (err, stdout, stderr) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (err) {
+        const e = new Error(err.message) as ExecError;
+        e.code = err.code;
+        e.stderr = stderr;
+        reject(e);
+      } else {
+        resolve({ stdout, stderr });
+      }
+    });
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      child.kill();
+      reject(new Error("picker timeout"));
+    }, PICK_TIMEOUT_MS);
   });
 }
+
+function isCancelled(err: ExecError): boolean {
+  return /canceled|cancelled/i.test(`${err.message} ${err.stderr ?? ""}`);
+}
+
+async function openNativeFolderPicker(): Promise<string> {
+  const os = platform();
+
+  if (os === "darwin") {
+    try {
+      const { stdout } = await execFileWithTimeout("osascript", [
+        "-e",
+        `POSIX path of (choose folder)`,
+      ]);
+      const path = stdout.trim().replace(/\/$/, "");
+      if (!path) throw new Error("cancelled");
+      return path;
+    } catch (err: any) {
+      if (isCancelled(err)) throw new Error("cancelled");
+      throw err;
+    }
+  }
+
+  if (os === "win32") {
+    const ps = `
+      Add-Type -AssemblyName System.Windows.Forms | Out-Null
+      Add-Type -AssemblyName System.Drawing | Out-Null
+      # Tiny always-on-top owner form: shown + activated so the dialog is
+      # allowed to take foreground focus even under Windows' foreground lock.
+      $owner = New-Object System.Windows.Forms.Form
+      $owner.TopMost = $true
+      $owner.ShowInTaskbar = $false
+      $owner.StartPosition = "Manual"
+      $owner.Location = New-Object System.Drawing.Point(-32000, -32000)
+      $owner.Size = New-Object System.Drawing.Size(1, 1)
+      $owner.Add_Shown({ $owner.Activate() })
+      $owner.Show()
+      $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+      $dialog.Description = "Select a project directory"
+      $dialog.ShowNewFolderButton = $true
+      $result = $dialog.ShowDialog($owner)
+      $owner.Close()
+      if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        $dialog.SelectedPath
+      }
+    `;
+    try {
+      const { stdout } = await execFileWithTimeout("powershell.exe", [
+        "-NoProfile",
+        "-STA",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        ps,
+      ]);
+      const path = stdout.trim();
+      if (!path) throw new Error("cancelled");
+      return path;
+    } catch (err: any) {
+      if (isCancelled(err)) throw new Error("cancelled");
+      const detail = err.stderr?.trim() || err.message;
+      throw new Error(detail);
+    }
+  }
+
+  // Linux: try zenity (GNOME/GTK), then kdialog (KDE)
+  try {
+    const { stdout } = await execFileWithTimeout("zenity", [
+      "--file-selection",
+      "--directory",
+    ]);
+    const path = stdout.trim();
+    if (!path) throw new Error("cancelled");
+    return path;
+  } catch (err: any) {
+    if (err?.code !== "ENOENT") {
+      if (isCancelled(err)) throw new Error("cancelled");
+      throw err;
+    }
+    try {
+      const { stdout } = await execFileWithTimeout("kdialog", [
+        "--getexistingdirectory",
+      ]);
+      const path = stdout.trim();
+      if (!path) throw new Error("cancelled");
+      return path;
+    } catch (err2: any) {
+      if (err2?.code === "ENOENT") {
+        throw new Error("No folder picker available. Install zenity or kdialog.");
+      }
+      if (isCancelled(err2)) throw new Error("cancelled");
+      throw err2;
+    }
+  }
+}
+
+// Only one native picker may exist at a time. Without this, repeated clicks
+// stack invisible modal dialogs (Windows foreground lock keeps background-
+// spawned dialogs behind the browser) and every spinner hangs forever.
+let pickInFlight = false;
 
 export default async function browseRoutes(app: FastifyInstance) {
   app.get("/api/browse", async (request, reply) => {
@@ -103,10 +182,25 @@ export default async function browseRoutes(app: FastifyInstance) {
   });
 
   app.get("/api/browse/pick", async (_request, reply) => {
+    if (pickInFlight) {
+      return reply.code(409).send({
+        error: "picker already open",
+        detail:
+          "A folder picker dialog is already waiting. Choose a folder or cancel it first.",
+      });
+    }
+
+    pickInFlight = true;
     try {
       const path = await openNativeFolderPicker();
       return { path };
     } catch (err: any) {
+      if (err.message === "picker timeout") {
+        return reply.code(504).send({
+          error: "Folder picker timed out",
+          detail: "The dialog stayed open too long and was closed automatically.",
+        });
+      }
       if (err.message?.includes("cancelled")) {
         return reply.code(499).send({ error: "cancelled" });
       }
@@ -114,6 +208,8 @@ export default async function browseRoutes(app: FastifyInstance) {
         error: "Failed to open folder picker",
         detail: err.message?.slice(0, 500),
       });
+    } finally {
+      pickInFlight = false;
     }
   });
 }

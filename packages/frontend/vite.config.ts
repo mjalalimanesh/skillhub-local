@@ -4,7 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { resolve } from "node:path";
 import { readFileSync } from "node:fs";
 
-const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
+// The root CLI package (skillhub-local) is the version source of truth
+const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf-8"));
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

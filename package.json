@@ -1,6 +1,6 @@
 {
   "name": "skillhub-local",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "license": "MIT",
   "description": "Local web app for managing AI agent skills across your PC",
   "type": "module",
@@ -15,6 +15,9 @@
     "node": ">=18"
   },
   "scripts": {
+    "sync-versions": "node scripts/sync-versions.mjs",
+    "predev": "node scripts/sync-versions.mjs",
+    "prebuild": "node scripts/sync-versions.mjs",
     "dev": "concurrently -k -n frontend,backend -c cyan,green \"npm --prefix packages/frontend run dev\" \"npm --prefix packages/backend run dev\"",
     "build": "npm --prefix packages/frontend run build && npm --prefix packages/backend run build",
     "prepublishOnly": "npm run build",

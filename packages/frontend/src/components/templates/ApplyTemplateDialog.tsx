@@ -38,6 +38,7 @@ export function ApplyTemplateDialog({
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects"],
@@ -57,14 +58,21 @@ export function ApplyTemplateDialog({
   }, [open]);
 
   const pickFolder = async () => {
+    if (picking) return;
+    setPicking(true);
     try {
       const { path } = await api.pickFolder();
       if (path) {
         setTargetPath(path);
         setError(null);
       }
-    } catch {
-      // user cancelled the native picker
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      if (message && message !== "cancelled") {
+        setError(message);
+      }
+    } finally {
+      setPicking(false);
     }
   };
 
@@ -137,9 +145,9 @@ export function ApplyTemplateDialog({
                       }}
                       autoFocus
                     />
-                    <Button variant="secondary" size="md" onClick={pickFolder} className="shrink-0">
+                    <Button variant="secondary" size="md" onClick={pickFolder} disabled={picking} className="shrink-0">
                       <FolderOpen size={14} />
-                      Browse
+                      {picking ? "Opening…" : "Browse"}
                     </Button>
                   </div>
                 ) : (
@@ -171,9 +179,9 @@ export function ApplyTemplateDialog({
                       setError(null);
                     }}
                   />
-                  <Button variant="secondary" size="md" onClick={pickFolder} className="shrink-0">
+                  <Button variant="secondary" size="md" onClick={pickFolder} disabled={picking} className="shrink-0">
                     <FolderOpen size={14} />
-                    Browse
+                    {picking ? "Opening…" : "Browse"}
                   </Button>
                 </div>
               </div>
