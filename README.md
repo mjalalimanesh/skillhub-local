@@ -2,7 +2,8 @@
 
 **One local dashboard for all your AI coding agents.**
 
-<img width="1855" height="868" alt="SkillHub Local dashboard" src="https://github.com/user-attachments/assets/0460e9d4-f49a-4bf9-8daf-730819ef844d" />
+<img width="1768" height="860" alt="image" src="https://github.com/user-attachments/assets/9449cc2a-1ec7-4f28-b90e-96cd0cc89d55" />
+
 
 Skills · Memories · Instructions · Plugins · MCP Servers
 _Claude Code · Codex · Cursor · OpenCode · Gemini CLI · Copilot · Windsurf · Cline and more_
