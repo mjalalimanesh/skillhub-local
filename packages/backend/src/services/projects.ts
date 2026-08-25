@@ -9,9 +9,13 @@ export interface ProjectRoot {
 }
 
 const SKIP_DIRS = new Set([
-  ".git", ".svn", "node_modules", "dist", "build", "out",
-  ".next", ".cache", ".turbo", "target", "venv", ".venv",
-  "__pycache__", ".idea", ".vscode",
+  "node_modules", "dist", "build", "out", "target", "venv", ".venv",
+  "__pycache__", "coverage", "DerivedData", "Pods", "bin", "obj",
+  "Debug", "Release", "tmp", "temp",
+  "System Volume Information", "Recovery", "Windows",
+  "Program Files", "Program Files (x86)", "ProgramData", "PerfLogs",
+  "Documents and Settings", "Config.Msi", "MSOCache",
+  "Intel", "AMD", "NVIDIA",
 ]);
 
 const MAX_PROJECTS = 200;
@@ -25,7 +29,7 @@ export async function discoverProjects(projectDirs: string[]): Promise<ProjectRo
       const entries = await readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
         if (!entry.isDirectory()) continue;
-        if (SKIP_DIRS.has(entry.name)) continue;
+        if (isSystemFolder(entry.name)) continue;
 
         const childPath = join(dir, entry.name);
         try {
@@ -50,6 +54,14 @@ export async function discoverProjects(projectDirs: string[]): Promise<ProjectRo
   }
 
   return projects;
+}
+
+function isSystemFolder(name: string): boolean {
+  return (
+    name.startsWith(".") ||
+    name.startsWith("$") ||
+    SKIP_DIRS.has(name)
+  );
 }
 
 function hashString(str: string): string {
