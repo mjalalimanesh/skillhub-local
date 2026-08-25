@@ -25,16 +25,24 @@ function openNativeFolderPicker(): Promise<string> {
       });
     } else if (os === "win32") {
       const ps = `
-        Add-Type -AssemblyName System.Windows.Forms
+        Add-Type -AssemblyName System.Windows.Forms | Out-Null
         $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
         $dialog.Description = "Select a project directory"
         $dialog.ShowNewFolderButton = $true
-        if ($dialog.ShowDialog() -eq "OK") {
+        # Owner form raised to the front so the dialog never opens behind other windows
+        $owner = New-Object System.Windows.Forms.Form
+        $owner.TopMost = $true
+        if ($dialog.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) {
           $dialog.SelectedPath
         }
       `;
-      execFile("powershell.exe", ["-NoProfile", "-Command", ps], (err, stdout) => {
-        if (err) return reject(err);
+      const psArgs = ["-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-Command", ps];
+      execFile("powershell.exe", psArgs, (err, stdout, stderr) => {
+        if (err) {
+          const detail = stderr?.trim() || err.message;
+          if (/canceled|cancelled/i.test(detail) && !stdout.trim()) return reject(new Error("cancelled"));
+          return reject(new Error(detail));
+        }
         const path = stdout.trim();
         if (!path) return reject(new Error("cancelled"));
         resolve(path);
@@ -102,7 +110,10 @@ export default async function browseRoutes(app: FastifyInstance) {
       if (err.message?.includes("cancelled")) {
         return reply.code(499).send({ error: "cancelled" });
       }
-      return reply.code(500).send({ error: "Failed to open folder picker" });
+      return reply.code(500).send({
+        error: "Failed to open folder picker",
+        detail: err.message?.slice(0, 500),
+      });
     }
   });
 }
