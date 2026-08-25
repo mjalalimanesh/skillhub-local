@@ -108,7 +108,7 @@ export function Sidebar() {
             {wsConnected ? "Live" : "Offline"}
           </span>
         </div>
-        <span className="text-[11px] text-ink-dim">v0.2.0</span>
+        <span className="text-[11px] text-ink-dim">v{__APP_VERSION__}</span>
       </div>
     </aside>
   );

@@ -11,6 +11,7 @@ import {
   Brain,
   FileText,
   Cable,
+  FolderOpen,
   CheckCircle2,
   AlertTriangle,
   Download,
@@ -41,6 +42,11 @@ export default function DashboardPage() {
   const { data: mcpData } = useQuery({
     queryKey: ["mcp", "all"],
     queryFn: () => api.getMcpServers(),
+  });
+
+  const { data: projectsData } = useQuery({
+    queryKey: ["projects"],
+    queryFn: api.getProjects,
   });
 
   const progress = useAppStore((s) => s.progress);
@@ -82,7 +88,7 @@ export default function DashboardPage() {
         description="Overview of your agents and their context."
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
           icon={<Bot size={18} />}
           label="Agents Detected"
@@ -96,6 +102,13 @@ export default function DashboardPage() {
           value={skills.length}
           accent="success"
           to="/skills"
+        />
+        <StatCard
+          icon={<FolderOpen size={18} />}
+          label="Projects"
+          value={projectsData?.projects.length || 0}
+          accent="success"
+          to="/projects"
         />
         <StatCard
           icon={<Cable size={18} />}
