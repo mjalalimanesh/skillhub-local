@@ -146,18 +146,31 @@ const INSTRUCTION_SOURCES: InstructionSource[] = [
 const MAX_FILES = 5000;
 
 // Cursor stores per-project rules under ~/.cursor/projects/<encoded-path>/rules/,
-// where the folder name encodes the project path: drive colon is dropped,
-// path separators and "~" become "-", and the result is lowercased.
+// where the folder name encodes the project path: separators collapse to "-",
+// drive colons and "~" are dropped, and the result is lowercased
+// ("/Users/me/dev/app" -> "-users-me-dev-app", "D:\code\app" -> "d-code-app").
 // Encoding is ambiguous to reverse (a "-" may come from a separator or the
-// folder name itself), so matching runs encode-first.
+// folder name itself), so matching runs encode-first and decoding is
+// best-effort, used only for display.
 function encodeCursorProjectPath(p: string): string {
-  return expandHome(p).replace(":", "").replace(/[\\~]/g, "-").toLowerCase();
+  return expandHome(p)
+    .replace(/[:~]/g, "")
+    .replace(/[\\/]/g, "-")
+    .toLowerCase();
 }
 
 async function decodeCursorProjectPath(encoded: string): Promise<string> {
-  const drive = encoded.charAt(0).toUpperCase();
-  const rest = encoded.slice(1);
-  const segments = rest.split("-");
+  const segments = encoded.split("-").filter(Boolean);
+
+  // POSIX form: the leading dash is the root "/"
+  if (encoded.startsWith("-")) {
+    return "/" + segments.join("/");
+  }
+
+  // Windows form: "<drive>-<rest>", e.g. "d-code-app" -> "D:\code\app"
+  const drive = (segments.shift() ?? "").toUpperCase();
+  if (!drive) return encoded;
+  const rest = segments.join("-");
 
   const candidates: string[] = [];
   candidates.push(`${drive}:\\${rest}`);
