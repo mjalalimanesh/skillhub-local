@@ -69,20 +69,72 @@ async function openNativeFolderPicker(): Promise<string> {
     const ps = `
       Add-Type -AssemblyName System.Windows.Forms | Out-Null
       Add-Type -AssemblyName System.Drawing | Out-Null
-      # Tiny always-on-top owner form: shown + activated so the dialog is
-      # allowed to take foreground focus even under Windows' foreground lock.
+      Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class SkillHubWin {
+  public delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc cb, IntPtr l);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr a, int x, int y, int cx, int cy, uint f);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a, uint b, bool c);
+  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+  public static void RaiseDialogs(uint pid, IntPtr skip) {
+    EnumWindows(delegate(IntPtr h, IntPtr l) {
+      uint wpid;
+      GetWindowThreadProcessId(h, out wpid);
+      if (wpid == pid && h != l && IsWindowVisible(h)) {
+        SetWindowPos(h, new IntPtr(-1), 0, 0, 0, 0, 0x43);
+      }
+      return true;
+    }, skip);
+  }
+  public static void ForceForeground(IntPtr h) {
+    IntPtr fg = GetForegroundWindow();
+    uint p;
+    uint ft = GetWindowThreadProcessId(fg, out p);
+    uint ct = GetCurrentThreadId();
+    if (ft != 0 && ft != ct) {
+      AttachThreadInput(ct, ft, true);
+      try { SetForegroundWindow(h); } finally { AttachThreadInput(ct, ft, false); }
+    } else {
+      SetForegroundWindow(h);
+    }
+  }
+}
+"@
+      # Tiny always-on-top owner form (centered, effectively invisible)
       $owner = New-Object System.Windows.Forms.Form
       $owner.TopMost = $true
       $owner.ShowInTaskbar = $false
-      $owner.StartPosition = "Manual"
-      $owner.Location = New-Object System.Drawing.Point(-32000, -32000)
+      $owner.StartPosition = "CenterScreen"
       $owner.Size = New-Object System.Drawing.Size(1, 1)
       $owner.Add_Shown({ $owner.Activate() })
       $owner.Show()
       $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
       $dialog.Description = "Select a project directory"
       $dialog.ShowNewFolderButton = $true
+      # While the modal dialog is open, keep every picker window of this
+      # process above all other windows (SetWindowPos HWND_TOPMOST beats the
+      # Windows foreground lock, which hides dialogs spawned by background
+      # processes). Foreground focus is forced for the first ~3s only, so the
+      # user can still switch away without the dialog fighting back.
+      $script:ticks = 0
+      $timer = New-Object System.Windows.Forms.Timer
+      $timer.Interval = 400
+      $timer.Add_Tick({
+        $script:ticks++
+        [SkillHubWin]::RaiseDialogs($PID, $owner.Handle)
+        if ($script:ticks -le 8) {
+          [SkillHubWin]::ForceForeground($owner.Handle)
+        }
+      })
+      $timer.Start()
       $result = $dialog.ShowDialog($owner)
+      $timer.Stop()
       $owner.Close()
       if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
         $dialog.SelectedPath
