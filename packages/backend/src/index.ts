@@ -26,6 +26,26 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const PORT = Number(process.env.PORT) || 3742;
 const HOST = process.env.HOST || "127.0.0.1";
 
+// Host pinning (anti-DNS-rebinding): browsers always send the true Host
+// header, so a rebound request — attacker-domain resolving to 127.0.0.1 —
+// arrives with a foreign hostname and is rejected before any route runs.
+// Non-browser clients can spoof Host freely; they are gated by the token.
+function hostnameOfHostHeader(hostHeader: string): string {
+  const host = hostHeader.trim().toLowerCase();
+  if (host.startsWith("[")) {
+    const end = host.indexOf("]");
+    return end === -1 ? host : host.slice(0, end + 1);
+  }
+  const colon = host.lastIndexOf(":");
+  return colon === -1 ? host : host.slice(0, colon);
+}
+
+const LOOPBACK_BINDS = new Set(["127.0.0.1", "localhost", "[::1]", "::1"]);
+const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "[::1]"]);
+const hostPinningEnabled = LOOPBACK_BINDS.has(HOST.trim().toLowerCase());
+const hostAllowed = (hostHeader: string) =>
+  ALLOWED_HOSTNAMES.has(hostnameOfHostHeader(hostHeader));
+
 // `skillhub-local stop` — terminate a running instance and exit before any
 // startup work happens.
 if (process.argv[2] === "stop") {
@@ -49,6 +69,13 @@ const loggerOption = process.env.SKILLHUB_LOG
   ? { level: process.env.SKILLHUB_LOG === "1" ? "info" : process.env.SKILLHUB_LOG }
   : false;
 const app = Fastify({ logger: loggerOption });
+
+app.addHook("onRequest", async (request, reply) => {
+  if (!hostPinningEnabled) return;
+  const host = request.headers.host;
+  if (typeof host === "string" && hostAllowed(host)) return;
+  return reply.code(403).send({ error: "Invalid Host header" });
+});
 
 const authToken = await getAuthToken();
 
@@ -124,6 +151,9 @@ try {
   const address = await app.listen({ port: PORT, host: HOST });
   await writePidFile();
   console.log(`\n  SkillHub Local running at ${address}`);
+  if (!hostPinningEnabled) {
+    console.log(`  Warning: HOST=${HOST} is not loopback — Host pinning is disabled.`);
+  }
   console.log(`  Access token: ${authToken}\n`);
 } catch (err) {
   if ((err as NodeJS.ErrnoException | undefined)?.code !== "EADDRINUSE") throw err;
@@ -164,9 +194,12 @@ try {
 const wss = new WebSocketServer({
   server: app.server,
   verifyClient: (info, callback) => {
+    const hostOk =
+      !hostPinningEnabled ||
+      (typeof info.req.headers.host === "string" && hostAllowed(info.req.headers.host));
     const url = new URL(info.req.url ?? "/", "http://localhost");
     const token = url.searchParams.get("token");
-    callback(token === authToken);
+    callback(hostOk && token === authToken);
   },
 });
 

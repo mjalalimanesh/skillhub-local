@@ -20,10 +20,14 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:3742",
+      "/api": {
+        target: "http://127.0.0.1:3742",
+        changeOrigin: true,
+      },
       "/ws": {
         target: "ws://127.0.0.1:3742",
         ws: true,
+        changeOrigin: true,
       },
     },
   },
