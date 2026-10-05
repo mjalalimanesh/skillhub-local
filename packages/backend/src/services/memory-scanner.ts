@@ -1,6 +1,7 @@
 import { readFile, stat, access, readdir, writeFile } from "node:fs/promises";
 import { createReadStream } from "node:fs";
-import { join, resolve, normalize, relative } from "node:path";
+import { join, resolve, normalize, relative, sep } from "node:path";
+import { homedir } from "node:os";
 import { expandHome } from "./scanner.js";
 import { discoverProjects } from "./projects.js";
 import { loadConfig } from "./plugins.js";
@@ -69,6 +70,34 @@ const MEMORY_SOURCES: MemorySource[] = [
 ];
 
 const MAX_FILES = 5000;
+
+// Claude Code stores memory per working directory under
+// ~/.claude/projects/<cwd with non-alphanumerics replaced by "-">/memory/.
+function encodeClaudeProjectDir(p: string): string {
+  return p.replace(/[^a-zA-Z0-9]/g, "-");
+}
+
+function claudeProjectInfo(
+  filePath: string,
+  projects: { id: string; name: string; path: string }[],
+): { projectId: string; projectName: string; projectRoot?: string } | null {
+  const marker = `${sep}projects${sep}`;
+  const idx = filePath.lastIndexOf(marker);
+  if (idx === -1) return null;
+  const dirName = filePath.slice(idx + marker.length).split(sep)[0];
+  if (!dirName) return null;
+
+  const home = homedir();
+  if (dirName === encodeClaudeProjectDir(home)) return null; // user-level cwd: global
+
+  const match = projects.find((p) => encodeClaudeProjectDir(p.path) === dirName);
+  if (match) return { projectId: match.id, projectName: match.name, projectRoot: match.path };
+
+  // Unknown project: the encoding is lossy, so show the encoded name minus the home prefix.
+  const homePrefix = encodeClaudeProjectDir(home) + "-";
+  const display = dirName.startsWith(homePrefix) ? dirName.slice(homePrefix.length) : dirName;
+  return { projectId: `claude-code::${dirName}`, projectName: display || dirName };
+}
 
 async function pathExists(p: string): Promise<boolean> {
   try {
@@ -185,13 +214,15 @@ export async function scanMemories(projectDirs: string[]): Promise<MemoryFile[]>
           try {
             const s = await stat(filePath);
             const preview = await readPreview(filePath, src.readOnly);
+            const proj = src.toolId === "claude-code" ? claudeProjectInfo(filePath, projects) : null;
             results.push({
               id: `${src.toolId}::${relative(expandHome("~"), filePath)}`,
               toolId: src.toolId,
               toolName: src.toolName,
               name: filePath.split(/[\\/]/).pop() || filePath,
               path: filePath,
-              scope: "global",
+              scope: proj ? "project" : "global",
+              ...(proj ?? {}),
               size: s.size,
               lastModified: s.mtime.toISOString(),
               preview,
