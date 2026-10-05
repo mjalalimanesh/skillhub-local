@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
@@ -13,7 +14,40 @@ import {
   FolderOpen,
   RefreshCw,
   Puzzle,
+  ChevronRight,
 } from "lucide-react";
+
+function CollapsibleSection({
+  icon,
+  title,
+  count,
+  defaultOpen,
+  children,
+}: {
+  icon: ReactNode;
+  title: ReactNode;
+  count: number;
+  defaultOpen: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full text-left text-sm font-semibold text-ink-muted flex items-center gap-2 hover:text-ink transition-colors cursor-pointer"
+      >
+        <ChevronRight size={13} className={`transition-transform ${open ? "rotate-90" : ""}`} />
+        {icon}
+        {title}
+        <Badge variant="default" className="text-xs">{count}</Badge>
+      </button>
+      {open && children}
+    </section>
+  );
+}
 
 export default function ProjectDetailPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -97,6 +131,8 @@ export default function ProjectDetailPage() {
 
   const totalItems =
     skillRows.size + instructions.length + memories.length + servers.length;
+  const onlyOneSection =
+    [skillRows.size, instructions.length, memories.length, servers.length].filter((n) => n > 0).length === 1;
 
   return (
     <div className="space-y-6">
@@ -128,12 +164,7 @@ export default function ProjectDetailPage() {
       ) : (
         <>
           {skillRows.size > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-ink-muted flex items-center gap-2">
-                <Package size={13} />
-                Skills
-                <Badge variant="default" className="text-xs">{skillRows.size}</Badge>
-              </h2>
+            <CollapsibleSection icon={<Package size={13} />} title="Skills" count={skillRows.size} defaultOpen={onlyOneSection}>
               {[...skillRows.values()].map((row) => (
                 <Link
                   key={`${row.path}`}
@@ -162,16 +193,11 @@ export default function ProjectDetailPage() {
                   </Card>
                 </Link>
               ))}
-            </section>
+            </CollapsibleSection>
           )}
 
           {instructions.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-ink-muted flex items-center gap-2">
-                <FileText size={13} />
-                AGENTS.md &amp; instructions
-                <Badge variant="default" className="text-xs">{instructions.length}</Badge>
-              </h2>
+            <CollapsibleSection icon={<FileText size={13} />} title="AGENTS.md &amp; instructions" count={instructions.length} defaultOpen={onlyOneSection}>
               {instructions.map((i) => (
                 <Link
                   key={i.id}
@@ -192,16 +218,11 @@ export default function ProjectDetailPage() {
                   </Card>
                 </Link>
               ))}
-            </section>
+            </CollapsibleSection>
           )}
 
           {memories.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-ink-muted flex items-center gap-2">
-                <Brain size={13} />
-                Memories
-                <Badge variant="default" className="text-xs">{memories.length}</Badge>
-              </h2>
+            <CollapsibleSection icon={<Brain size={13} />} title="Memories" count={memories.length} defaultOpen={onlyOneSection}>
               {memories.map((m) => (
                 <Link
                   key={m.id}
@@ -222,16 +243,11 @@ export default function ProjectDetailPage() {
                   </Card>
                 </Link>
               ))}
-            </section>
+            </CollapsibleSection>
           )}
 
           {servers.length > 0 && (
-            <section className="space-y-2">
-              <h2 className="text-sm font-semibold text-ink-muted flex items-center gap-2">
-                <Cable size={13} />
-                MCP Servers
-                <Badge variant="default" className="text-xs">{servers.length}</Badge>
-              </h2>
+            <CollapsibleSection icon={<Cable size={13} />} title="MCP Servers" count={servers.length} defaultOpen={onlyOneSection}>
               {servers.map((s) => (
                 <Link
                   key={s.id}
@@ -252,7 +268,7 @@ export default function ProjectDetailPage() {
                   </Card>
                 </Link>
               ))}
-            </section>
+            </CollapsibleSection>
           )}
 
           {totalItems === 0 && (
