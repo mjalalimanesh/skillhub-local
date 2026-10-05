@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FolderPickerDialog, canUseNativePicker } from "@/components/ui/folder-picker-dialog";
 import { FolderOpen, AlertTriangle } from "lucide-react";
 import type { AgentTemplate } from "@/lib/types";
 
@@ -39,6 +40,7 @@ export function ApplyTemplateDialog({
   const [error, setError] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects"],
@@ -59,6 +61,10 @@ export function ApplyTemplateDialog({
 
   const pickFolder = async () => {
     if (picking) return;
+    if (!canUseNativePicker()) {
+      setBrowsing(true);
+      return;
+    }
     setPicking(true);
     try {
       const { path } = await api.pickFolder();
@@ -69,7 +75,7 @@ export function ApplyTemplateDialog({
     } catch (err) {
       const message = err instanceof Error ? err.message : "";
       if (message && message !== "cancelled") {
-        setError(message);
+        setBrowsing(true);
       }
     } finally {
       setPicking(false);
@@ -232,6 +238,15 @@ export function ApplyTemplateDialog({
           )}
         </DialogFooter>
       </DialogContent>
+      <FolderPickerDialog
+        open={browsing}
+        onOpenChange={setBrowsing}
+        initialPath={targetPath}
+        onSelect={(path) => {
+          setTargetPath(path);
+          setError(null);
+        }}
+      />
     </Dialog>
   );
 }

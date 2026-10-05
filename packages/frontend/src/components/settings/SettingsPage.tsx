@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { FolderPickerDialog, canUseNativePicker } from "@/components/ui/folder-picker-dialog";
 import { useToastStore } from "@/components/ui/toaster";
 import { Plus, Trash2, FolderOpen, Loader2 } from "lucide-react";
 
@@ -69,23 +70,27 @@ export default function SettingsPage() {
     }
   }, [config?.projectDirs]);
 
+  const [browseIdx, setBrowseIdx] = useState<number | null>(null);
+
+  const applyPickedDir = (idx: number, path: string) => {
+    const updated = [...localDirs];
+    updated[idx] = path;
+    setLocalDirs(updated);
+    saveProjectDirsMutation.mutate(updated);
+  };
+
   const handleNativePick = async (idx: number) => {
+    if (!canUseNativePicker()) {
+      setBrowseIdx(idx);
+      return;
+    }
     setPickingIdx(idx);
     try {
       const result = await api.pickFolder();
-      const updated = [...localDirs];
-      updated[idx] = result.path;
-      setLocalDirs(updated);
-      saveProjectDirsMutation.mutate(updated);
+      applyPickedDir(idx, result.path);
     } catch (err: any) {
       if (err?.message !== "cancelled") {
-        addToast({
-          type: "error",
-          title: "Folder picker unavailable",
-          description:
-            err?.message ||
-            "The system folder dialog could not be opened. Type a path manually instead.",
-        });
+        setBrowseIdx(idx);
       }
     } finally {
       setPickingIdx(null);
@@ -263,6 +268,13 @@ export default function SettingsPage() {
           </Button>
         </div>
       </Card>
+
+      <FolderPickerDialog
+        open={browseIdx !== null}
+        onOpenChange={(o) => !o && setBrowseIdx(null)}
+        initialPath={browseIdx !== null ? localDirs[browseIdx] : undefined}
+        onSelect={(path) => browseIdx !== null && applyPickedDir(browseIdx, path)}
+      />
     </div>
   );
 }
