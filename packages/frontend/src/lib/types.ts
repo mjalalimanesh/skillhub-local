@@ -6,6 +6,7 @@ export interface Agent {
   pluginCount: number;
   mcpCount: number;
   icon: string;
+  builtInNote?: string;
 }
 
 export interface Skill {
@@ -19,6 +20,8 @@ export interface Skill {
   hasScripts: boolean;
   hasAssets: boolean;
   hasReferences: boolean;
+  /** False when this copy is not supported by the skills CLI update flow. */
+  supportsUpdate?: boolean;
   pluginId?: string;
   pluginName?: string;
   projectId?: string;

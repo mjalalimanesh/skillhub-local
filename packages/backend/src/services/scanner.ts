@@ -1,5 +1,5 @@
-import { readdir, stat, readFile, access } from "node:fs/promises";
-import { join, relative, resolve } from "node:path";
+import { readdir, stat, readFile, access, realpath } from "node:fs/promises";
+import { join, relative, resolve, dirname } from "node:path";
 import { platform } from "node:os";
 import { createHash } from "node:crypto";
 import matter from "gray-matter";
@@ -8,7 +8,7 @@ import { detectMcpServers } from "./mcp-scanner.js";
 import { loadConfig } from "./plugins.js";
 import { discoverProjects } from "./projects.js";
 import type { ProjectRoot } from "./projects.js";
-import { expandHome } from "./paths.js";
+import { expandHome, getPiAgentDir, getDshHome, getDshAgentsHome } from "./paths.js";
 
 interface AgentDef {
   id: string;
@@ -16,7 +16,9 @@ interface AgentDef {
   globalDir: string;
   projectDir: string;
   icon: string;
+  configDir?: string;
   extraDirs?: string[];
+  extraProjectDirs?: string[];
   builtInNote?: string;
 }
 
@@ -27,6 +29,8 @@ const AGENT_DEFINITIONS: AgentDef[] = [
   { id: "claude-code", name: "Claude Code", globalDir: "~/.claude/skills", projectDir: ".claude/skills", icon: "anthropic", extraDirs: [SHARED_GLOBAL_DIR] },
   { id: "codex", name: "Codex", globalDir: "~/.codex/skills", projectDir: ".agents/skills", icon: "openai", extraDirs: [SHARED_GLOBAL_DIR] },
   { id: "opencode", name: "OpenCode", globalDir: "~/.config/opencode/skills", projectDir: ".agents/skills", icon: "opencode", extraDirs: [SHARED_GLOBAL_DIR, "~/.claude/skills", "~/.opencode/skills"], builtInNote: "Also has embedded skills (e.g. customize-opencode) compiled into the binary" },
+  { id: "pi", name: "Pi", globalDir: join(getPiAgentDir(), "skills"), configDir: getPiAgentDir(), projectDir: ".pi/skills", extraProjectDirs: [".agents/skills"], icon: "pi", extraDirs: [SHARED_GLOBAL_DIR], builtInNote: "Reads Pi-native and shared Agent Skills directories. Native MCP requires a newer Pi release; legacy Pi uses extensions." },
+  { id: "deepseek-harness", name: "DeepSeek Harness", globalDir: join(getDshHome(), "skills"), configDir: getDshHome(), projectDir: ".dsh/skills", extraProjectDirs: [".agents/skills"], icon: "deepseek", extraDirs: [join(getDshAgentsHome(), "skills")], builtInNote: "Reads .dsh and shared Agent Skills directories. Bundled skills are managed by the harness." },
   { id: "cursor", name: "Cursor", globalDir: "~/.cursor/skills", projectDir: ".agents/skills", icon: "cursor", extraDirs: ["~/.cursor/skills-cursor", "~/.cursor/plugins/cache/cursor-public", SHARED_GLOBAL_DIR] },
   { id: "gemini-cli", name: "Gemini CLI", globalDir: "~/.gemini/skills", projectDir: ".agents/skills", icon: "gemini", extraDirs: [SHARED_GLOBAL_DIR] },
   { id: "github-copilot", name: "GitHub Copilot", globalDir: "~/.copilot/skills", projectDir: ".agents/skills", icon: "copilot", extraDirs: [SHARED_GLOBAL_DIR] },
@@ -76,9 +80,17 @@ async function scanSkillDir(dir: string, depth = 0): Promise<SkillEntry[]> {
 
     // Second pass: scan children
     for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-
       const childDir = join(dir, entry.name);
+      // Skill installers often create directory symlinks (junctions on Windows).
+      // Follow only directory links; the existing depth limit also bounds cycles.
+      if (!entry.isDirectory()) {
+        if (!entry.isSymbolicLink()) continue;
+        try {
+          if (!(await stat(childDir)).isDirectory()) continue;
+        } catch {
+          continue; // broken or inaccessible symlink
+        }
+      }
       const skillMdPath = join(childDir, "SKILL.md");
 
       if (await pathExists(skillMdPath)) {
@@ -118,6 +130,37 @@ async function scanSkillDir(dir: string, depth = 0): Promise<SkillEntry[]> {
   return skills;
 }
 
+function filterAgentSkillEntries(agent: AgentDef, root: string, entries: SkillEntry[]): SkillEntry[] {
+  if (agent.id !== "deepseek-harness") return entries;
+  // DSH discovers immediate skill bundles, not arbitrary nested directories;
+  // its native global .system directory is reserved for harness-managed data.
+  const nativeGlobal = resolve(expandHome(agent.globalDir));
+  return entries.filter((skill) => resolve(dirname(skill.path)) === resolve(root) &&
+    !(resolve(root) === nativeGlobal && skill.name === ".system"));
+}
+
+function getProjectSkillDirs(agent: AgentDef): string[] {
+  return [...new Set([agent.projectDir, ...(agent.extraProjectDirs || [])])];
+}
+
+// A native skill may also be linked from a shared root. Count the physical
+// skill once, but retain distinct copies so the user can inspect/remove them.
+async function scanAgentGlobalSkills(agent: AgentDef): Promise<SkillEntry[]> {
+  const skills: SkillEntry[] = [];
+  const seen = new Set<string>();
+  for (const dir of [agent.globalDir, ...(agent.extraDirs || [])]) {
+    const root = expandHome(dir);
+    for (const skill of filterAgentSkillEntries(agent, root, await scanSkillDir(root))) {
+      const canonical = await realpath(skill.path).catch(() => resolve(skill.path));
+      const key = platform() === "win32" ? canonical.toLowerCase() : canonical;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      skills.push(skill);
+    }
+  }
+  return skills;
+}
+
 export interface DetectedAgent {
   id: string;
   name: string;
@@ -147,6 +190,7 @@ export interface InstalledSkill {
   projectId?: string;
   projectName?: string;
   projectRoot?: string;
+  supportsUpdate?: boolean;
 }
 
 interface ProjectSkillHit {
@@ -168,16 +212,31 @@ async function scanProjectSkillHits(
 
   const agentsByRelDir = new Map<string, AgentDef[]>();
   for (const agent of agents) {
-    const list = agentsByRelDir.get(agent.projectDir) || [];
-    list.push(agent);
-    agentsByRelDir.set(agent.projectDir, list);
+    for (const relDir of getProjectSkillDirs(agent)) {
+      const list = agentsByRelDir.get(relDir) || [];
+      list.push(agent);
+      agentsByRelDir.set(relDir, list);
+    }
   }
 
   for (const project of projects) {
+    const seen = new Map<string, number>();
     for (const [relDir, dirAgents] of agentsByRelDir) {
       const entries = await scanSkillDir(join(project.path, relDir));
       for (const entry of entries) {
+        const canonical = await realpath(entry.path).catch(() => resolve(entry.path));
+        const pathKey = platform() === "win32" ? canonical.toLowerCase() : canonical;
         for (const agent of dirAgents) {
+          if (!filterAgentSkillEntries(agent, join(project.path, relDir), [entry]).length) continue;
+          const key = `${agent.id}::${pathKey}`;
+          const previous = seen.get(key);
+          if (previous !== undefined) {
+            // Directory grouping is shared across agents: .agents may be walked
+            // first even though this agent's native root has higher precedence.
+            if (relDir === agent.projectDir) hits[previous] = { agentId: agent.id, entry, project };
+            continue;
+          }
+          seen.set(key, hits.length);
           hits.push({ agentId: agent.id, entry, project });
         }
       }
@@ -229,24 +288,13 @@ export async function detectAgents(): Promise<DetectedAgent[]> {
 
   for (const agent of AGENT_DEFINITIONS) {
     const globalDir = expandHome(agent.globalDir);
-    const configDir = expandHome(agent.globalDir.replace("/skills", ""));
-    // Agent is detected if either the skills dir or the config dir exists
-    const detected = (await pathExists(globalDir)) || (await pathExists(configDir));
-    let skillCount = 0;
-
-    if (await pathExists(globalDir)) {
-      const skills = await scanSkillDir(globalDir);
-      skillCount = skills.length;
-    }
-
-    // Also scan extra dirs regardless of main dir existence
-    if (agent.extraDirs) {
-      for (const extraDir of agent.extraDirs) {
-        const extraPath = expandHome(extraDir);
-        const extraSkills = await scanSkillDir(extraPath);
-        skillCount += extraSkills.length;
-      }
-    }
+    const configDir = agent.configDir ? expandHome(agent.configDir) : dirname(globalDir);
+    // Shared compatibility roots are not evidence that a harness is installed.
+    // A native project skill is evidence even before the global home exists.
+    const detected = (await pathExists(globalDir)) || (await pathExists(configDir)) ||
+      projectHits.some((hit) => hit.agentId === agent.id &&
+        isUnderBase(hit.entry.path, [join(hit.project.path, agent.projectDir)]));
+    let skillCount = (await scanAgentGlobalSkills(agent)).length;
 
     // Count plugins and their skills for this agent
     const agentPlugins = allPlugins.filter((p) => p.agentId === agent.id);
@@ -281,8 +329,7 @@ export async function scanAllSkills(agentId?: string): Promise<InstalledSkill[]>
   const agents = AGENT_DEFINITIONS.filter((a) => !agentId || a.id === agentId);
 
   for (const agent of agents) {
-    const globalDir = expandHome(agent.globalDir);
-    const skills = await scanSkillDir(globalDir);
+    const skills = await scanAgentGlobalSkills(agent);
 
     for (const skill of skills) {
       allSkills.push({
@@ -299,27 +346,6 @@ export async function scanAllSkills(agentId?: string): Promise<InstalledSkill[]>
       });
     }
 
-    // Also scan extra dirs
-    if (agent.extraDirs) {
-      for (const extraDir of agent.extraDirs) {
-        const extraPath = expandHome(extraDir);
-        const extraSkills = await scanSkillDir(extraPath);
-        for (const skill of extraSkills) {
-          allSkills.push({
-            id: `${agent.id}::${skill.name}`,
-            name: skill.name,
-            description: skill.description,
-            agentId: agent.id,
-            scope: "global",
-            path: skill.path,
-            frontmatter: skill.frontmatter,
-            hasScripts: skill.hasScripts,
-            hasAssets: skill.hasAssets,
-            hasReferences: skill.hasReferences,
-          });
-        }
-      }
-    }
   }
 
   // Project-scoped skills from configured project directories.
@@ -353,6 +379,17 @@ export async function scanAllSkills(agentId?: string): Promise<InstalledSkill[]>
     }
   }
 
+  // Separate native/shared copies can have the same name. Keep existing IDs
+  // for the first copy, and make additional rows stable and unambiguous.
+  const seenIds = new Set<string>();
+  for (const skill of allSkills) {
+    if (skill.agentId === "deepseek-harness") skill.supportsUpdate = false;
+    if (seenIds.has(skill.id)) {
+      const suffix = createHash("sha256").update(resolve(skill.path)).digest("hex").slice(0, 12);
+      skill.id = `${skill.id}::${suffix}`;
+    }
+    seenIds.add(skill.id);
+  }
   return allSkills;
 }
 
@@ -460,7 +497,7 @@ export async function getKnownSkillBases(): Promise<string[]> {
     const projects = await discoverProjects(config.projectDirs || []);
     for (const project of projects) {
       for (const agent of AGENT_DEFINITIONS) {
-        globalBases.push(join(project.path, agent.projectDir));
+        globalBases.push(...getProjectSkillDirs(agent).map((dir) => join(project.path, dir)));
       }
     }
   } catch {
@@ -485,7 +522,7 @@ export async function isUnderProjectSkillDir(p: string): Promise<boolean> {
     const projects = await discoverProjects(config.projectDirs || []);
     for (const project of projects) {
       for (const agent of AGENT_DEFINITIONS) {
-        projectBases.push(join(project.path, agent.projectDir));
+        projectBases.push(...getProjectSkillDirs(agent).map((dir) => join(project.path, dir)));
       }
     }
   } catch {

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
-import { scanAllSkills, copySkillToAgents, isUnderKnownSkillDir, isUnderProjectSkillDir, findSkillOverlaps, AGENT_DEFINITIONS, expandHome } from "../services/scanner.js";
+import { scanAllSkills, copySkillToAgents, findSkillOverlaps, AGENT_DEFINITIONS } from "../services/scanner.js";
 import { runSkillsCLI, validateSource, validateSkillName, searchSkillsCLI } from "../services/cli.js";
+import { installSkills, removeSkills, InvalidSkillPathError } from "../services/skill-operations.js";
 
 interface WSProgressEvent {
   type: "install" | "remove" | "update" | "error" | "done";
@@ -38,47 +39,34 @@ export default async function skillRoutes(app: FastifyInstance) {
       copy?: boolean;
     };
 
-    if (!body.source || !validateSource(body.source)) {
+    if (typeof body.source !== "string" || !body.source || !validateSource(body.source)) {
       return reply.code(400).send({ error: "Invalid source" });
     }
-    if (!body.skill || !validateSkillName(body.skill)) {
+    if (typeof body.skill !== "string" || !body.skill || !validateSkillName(body.skill)) {
       return reply.code(400).send({ error: "Invalid skill name" });
     }
-    if (!body.agents?.length) {
+    if (!Array.isArray(body.agents) || !body.agents.length) {
       return reply.code(400).send({ error: "At least one agent required" });
     }
     const validAgentIds = new Set(AGENT_DEFINITIONS.map((a) => a.id));
-    const invalidAgents = body.agents.filter((a) => !validAgentIds.has(a));
+    const invalidAgents = body.agents.filter((a) => typeof a !== "string" || !validAgentIds.has(a));
     if (invalidAgents.length > 0) {
       return reply.code(400).send({ error: `Unknown agents: ${invalidAgents.join(", ")}` });
     }
 
-    const args = ["add", body.source, "--skill", body.skill, "--yes"];
-    for (const agent of body.agents) {
-      args.push("--agent", agent);
-    }
-    if (body.global !== false) args.push("--global");
-    if (body.copy) args.push("--copy");
-
-    const broadcast = (data: string) => {
-      (app as any).wsBroadcast(data);
+    const broadcast = (event: WSProgressEvent) => {
+      (app as any).wsBroadcast(JSON.stringify(event));
     };
-    const onProgress = (data: string) => {
-      broadcast(JSON.stringify({
-        type: "install",
-        skill: body.skill,
-        message: data,
-      } satisfies WSProgressEvent));
-    };
+    const result = await installSkills(body, (message, agent) => {
+      broadcast({ type: "install", skill: body.skill, agent, message });
+    });
 
-    const result = await runSkillsCLI(args, onProgress);
-
-    broadcast(JSON.stringify({
+    broadcast({
       type: result.exitCode === 0 ? "done" : "error",
       skill: body.skill,
-      message: result.exitCode === 0 ? "Install complete" : result.stderr,
+      message: result.exitCode === 0 ? "Install complete" : result.stderr || "Install failed",
       progress: 100,
-    } satisfies WSProgressEvent));
+    });
 
     return reply.code(result.exitCode === 0 ? 200 : 500).send(result);
   });
@@ -91,57 +79,42 @@ export default async function skillRoutes(app: FastifyInstance) {
       skillPath?: string;
     };
 
-    if (!body.skill || !validateSkillName(body.skill)) {
+    // A supplied but empty path must not silently become a name-only removal.
+    if (body.skillPath !== undefined && (typeof body.skillPath !== "string" || !body.skillPath.trim())) {
+      return reply.code(400).send({ error: "Invalid skill path" });
+    }
+    if (typeof body.skill !== "string" || !body.skill || !validateSkillName(body.skill)) {
       return reply.code(400).send({ error: "Invalid skill name" });
     }
-    if (!body.agents?.length) {
+    if (!Array.isArray(body.agents) || !body.agents.length) {
       return reply.code(400).send({ error: "At least one agent required" });
     }
     const validAgentIds = new Set(AGENT_DEFINITIONS.map((a) => a.id));
-    const invalidAgents = body.agents.filter((a) => !validAgentIds.has(a));
+    const invalidAgents = body.agents.filter((a) => typeof a !== "string" || !validAgentIds.has(a));
     if (invalidAgents.length > 0) {
       return reply.code(400).send({ error: `Unknown agents: ${invalidAgents.join(", ")}` });
     }
 
-    // Delete the actual skill directory from disk if path provided
-    let removedFromProject = false;
-    if (body.skillPath) {
-      const { access, rm } = await import("node:fs/promises");
-      const { join } = await import("node:path");
-
-      // Confirm it's a real skill (has SKILL.md)
-      try {
-        await access(join(body.skillPath, "SKILL.md"));
-      } catch {
-        return reply.code(400).send({ error: "Invalid skill path: not a skill directory" });
+    const broadcast = (event: WSProgressEvent) => {
+      (app as any).wsBroadcast(JSON.stringify(event));
+    };
+    try {
+      const result = await removeSkills(body, (message, agent) => {
+        broadcast({ type: "remove", skill: body.skill, agent, message });
+      });
+      broadcast({
+        type: result.exitCode === 0 ? "done" : "error",
+        skill: body.skill,
+        message: result.exitCode === 0 ? result.stdout || "Remove complete" : result.stderr || "Remove failed",
+        progress: 100,
+      });
+      return reply.code(result.exitCode === 0 ? 200 : 500).send(result);
+    } catch (error) {
+      if (error instanceof InvalidSkillPathError) {
+        return reply.code(400).send({ error: error.message });
       }
-
-      // Confirm it's under a known skill directory
-      const isProjectSkill = await isUnderProjectSkillDir(body.skillPath);
-      if (!isProjectSkill && !(await isUnderKnownSkillDir(body.skillPath))) {
-        return reply.code(400).send({ error: "Invalid skill path: not under a known skill directory" });
-      }
-      removedFromProject = isProjectSkill;
-
-      try {
-        await rm(body.skillPath, { recursive: true, force: true });
-      } catch {}
+      throw error;
     }
-
-    // The skills CLI only manages global installs — project-scoped copies
-    // are plain directories, so deleting them above is the whole operation.
-    if (removedFromProject) {
-      return reply.code(200).send({ stdout: "", stderr: "", exitCode: 0 });
-    }
-
-    const args = ["remove", "--skill", body.skill, "--yes"];
-    for (const agent of body.agents) {
-      args.push("--agent", agent);
-    }
-    if (body.global !== false) args.push("--global");
-
-    const result = await runSkillsCLI(args);
-    return reply.code(result.exitCode === 0 ? 200 : 500).send(result);
   });
 
   app.post("/api/skills/update", async (request, reply) => {

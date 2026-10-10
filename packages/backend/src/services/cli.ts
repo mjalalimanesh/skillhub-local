@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { platform } from "node:os";
-import { delimiter, join } from "node:path";
+import { delimiter, extname, join } from "node:path";
 
 export interface CLIResult {
   exitCode: number | null;
@@ -18,7 +18,8 @@ const PINNED_VERSION = process.env.SKILLHUB_SKILLS_VERSION || "";
 function findOnPath(name: string): string | null {
   const pathVar = process.env.PATH || "";
   const extensions = isWin32
-    ? ["", ".cmd", ".bat", ".exe"]
+    // npm installs an extensionless POSIX shim beside the Windows batch shim.
+    ? [".exe", ".cmd", ".bat", ""]
     : [""];
   for (const dir of pathVar.split(delimiter)) {
     if (!dir) continue;
@@ -35,8 +36,9 @@ let resolvedCommand: string[] | null = null;
 function resolveSkillsCommand(): string[] {
   if (resolvedCommand) return resolvedCommand;
 
+  const npx = isWin32 ? findOnPath("npx") || "npx.cmd" : "npx";
   if (PINNED_VERSION) {
-    resolvedCommand = ["npx", `skills@${PINNED_VERSION}`];
+    resolvedCommand = [npx, `skills@${PINNED_VERSION}`];
     return resolvedCommand;
   }
 
@@ -46,23 +48,47 @@ function resolveSkillsCommand(): string[] {
     return resolvedCommand;
   }
 
-  resolvedCommand = ["npx", "skills"];
+  resolvedCommand = [npx, "skills"];
   return resolvedCommand;
+}
+
+// Batch shims need cmd.exe, but Node's shell:true joins unquoted arguments.
+// Quote every token and reject expansion/metacharacters rather than allow cmd
+// (or the shim's second parsing pass) to reinterpret user input as shell syntax.
+function quoteBatchArgument(value: string): string {
+  if (/[\x00-\x1f\x7f"&|<>^%!]/.test(value)) {
+    throw new Error("Unsafe character in Windows skills CLI argument");
+  }
+  // npm/skills shims forward these arguments to Node's Windows argv parser.
+  return `"${value.replace(/\\+$/, "$&$&")}"`;
 }
 
 export function runSkillsCLI(
   args: string[],
-  onProgress?: CLIProgressCallback
+  onProgress?: CLIProgressCallback,
+  // Omitted for existing callers; Harness installs use a temporary project cwd.
+  cwd?: string,
+  env?: NodeJS.ProcessEnv
 ): Promise<CLIResult> {
   return new Promise((resolve, reject) => {
     const [cmd, ...cmdArgs] = resolveSkillsCommand();
-    const proc: ChildProcess = spawn(cmd, [...cmdArgs, ...args], {
-      shell: isWin32,
-      env: {
-        ...process.env,
-        DISABLE_TELEMETRY: "1",
-      },
-    });
+    const cliArgs = [...cmdArgs, ...args];
+    const batchShim = isWin32 && /\.(cmd|bat)$/i.test(extname(cmd));
+    const commandLine = batchShim ? [cmd, ...cliArgs].map(quoteBatchArgument).join(" ") : "";
+    const proc: ChildProcess = spawn(
+      batchShim ? process.env.ComSpec || "cmd.exe" : cmd,
+      batchShim ? ["/d", "/s", "/v:off", "/c", `"${commandLine}"`] : cliArgs,
+      {
+        shell: false,
+        windowsVerbatimArguments: batchShim,
+        cwd,
+        env: {
+          ...process.env,
+          ...env,
+          DISABLE_TELEMETRY: "1",
+        },
+      }
+    );
 
     let stdout = "";
     let stderr = "";
@@ -142,9 +168,9 @@ export async function searchSkillsCLI(
 }
 
 export function validateSource(source: string): boolean {
-  return /^[a-zA-Z0-9._\-\/]+$/.test(source);
+  return !source.startsWith("-") && /^[a-zA-Z0-9._\-\/]+$/.test(source);
 }
 
 export function validateSkillName(name: string): boolean {
-  return /^[a-zA-Z0-9._ \-]+$/.test(name);
+  return name.trim().length > 0 && !name.trimStart().startsWith("-") && /^[a-zA-Z0-9._ \-]+$/.test(name);
 }

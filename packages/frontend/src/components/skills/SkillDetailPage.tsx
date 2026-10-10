@@ -60,6 +60,8 @@ export default function SkillDetailPage() {
   const instances: Skill[] = (skillsData?.skills || []).filter(
     (s) => s.name === skillName
   );
+  const hasUpdatableInstances = instances.some((s) => s.supportsUpdate !== false);
+  const hasUnsupportedUpdates = instances.some((s) => s.supportsUpdate === false);
 
   // When opened from a project context, show that exact copy — a global
   // skill with the same name must not shadow it.
@@ -140,11 +142,22 @@ export default function SkillDetailPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: () => api.updateSkill({ skills: [skillName!] }),
+    mutationFn: () => {
+      if (!hasUpdatableInstances) {
+        throw new Error("Native DeepSeek Harness skill updates are not supported by the skills CLI.");
+      }
+      return api.updateSkill({ skills: [skillName!] });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["skills"] });
       queryClient.invalidateQueries({ queryKey: ["skillDetail"] });
-      addToast({ type: "success", title: "Update complete" });
+      addToast({
+        type: "success",
+        title: "CLI update complete",
+        description: hasUnsupportedUpdates
+          ? "Native DeepSeek Harness copies are not tracked by the skills CLI; this does not confirm they are up to date."
+          : undefined,
+      });
     },
     onError: (error: Error) => {
       addToast({ type: "error", title: "Update failed", description: error.message });
@@ -248,7 +261,10 @@ export default function SkillDetailPage() {
               variant="secondary"
               size="sm"
               onClick={() => updateMutation.mutate()}
-              disabled={updateMutation.isPending}
+              disabled={updateMutation.isPending || !hasUpdatableInstances}
+              title={hasUpdatableInstances
+                ? "Update CLI-tracked copies only"
+                : "Native DeepSeek Harness skill updates are unsupported"}
             >
               <RefreshCw
                 size={14}
@@ -287,6 +303,12 @@ export default function SkillDetailPage() {
             );
           })}
         </div>
+        {hasUnsupportedUpdates && (
+          <p className="text-xs text-ink-dim">
+            Native DeepSeek Harness skill updates are unsupported: these copies are not tracked by the skills CLI.
+            {hasUpdatableInstances && " Update applies only to CLI-tracked copies and does not confirm DeepSeek Harness copies are up to date."}
+          </p>
+        )}
       </div>
 
       <div className="flex gap-4 items-start">

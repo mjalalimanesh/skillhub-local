@@ -5,6 +5,7 @@ import { discoverProjects } from "./projects.js";
 import type { ProjectRoot } from "./projects.js";
 import { loadConfig } from "./plugins.js";
 import { getTrustedDirs } from "./trusted-dirs.js";
+import { getPiAgentDir, getDshHome } from "./paths.js";
 
 export interface InstructionFile {
   id: string;
@@ -29,9 +30,36 @@ interface InstructionSource {
   paths: string[];
   scope: "global" | "project";
   homeProjects?: boolean;
+  firstMatchOnly?: boolean;
 }
 
 const INSTRUCTION_SOURCES: InstructionSource[] = [
+  {
+    toolId: "pi",
+    toolName: "Pi",
+    paths: ["AGENTS.override.md", "AGENTS.md", "AGENTS.MD", "CLAUDE.md", "CLAUDE.MD"].map((name) => join(getPiAgentDir(), name)),
+    scope: "global",
+    firstMatchOnly: true,
+  },
+  {
+    toolId: "pi",
+    toolName: "Pi",
+    paths: ["AGENTS.override.md", "AGENTS.md", "AGENTS.MD", "CLAUDE.md", "CLAUDE.MD"],
+    scope: "project",
+    firstMatchOnly: true,
+  },
+  {
+    toolId: "deepseek-harness",
+    toolName: "DeepSeek Harness",
+    paths: [join(getDshHome(), "AGENTS.md")],
+    scope: "global",
+  },
+  {
+    toolId: "deepseek-harness",
+    toolName: "DeepSeek Harness",
+    paths: ["AGENTS.md", "CLAUDE.md", "AGENTS.local.md", "CLAUDE.local.md"],
+    scope: "project",
+  },
   {
     toolId: "claude-code",
     toolName: "Claude Code",
@@ -305,7 +333,7 @@ export async function scanInstructions(projectDirs: string[]): Promise<Instructi
 
   for (const src of INSTRUCTION_SOURCES) {
     if (src.scope === "global") {
-      for (const pattern of src.paths) {
+      globalPatterns: for (const pattern of src.paths) {
         const files = await expandGlobPattern(pattern);
         for (const filePath of files) {
           try {
@@ -324,6 +352,7 @@ export async function scanInstructions(projectDirs: string[]): Promise<Instructi
               preview,
               hasFrontmatter,
             });
+            if (src.firstMatchOnly) break globalPatterns;
           } catch {
             // skip
           }
@@ -391,7 +420,7 @@ export async function scanInstructions(projectDirs: string[]): Promise<Instructi
         }
       } else {
         for (const proj of projects) {
-          for (const pattern of src.paths) {
+          projectPatterns: for (const pattern of src.paths) {
             const absPattern = join(proj.path, pattern);
             const files = await expandGlobPattern(absPattern);
             for (const filePath of files) {
@@ -414,6 +443,7 @@ export async function scanInstructions(projectDirs: string[]): Promise<Instructi
                   preview,
                   hasFrontmatter,
                 });
+                if (src.firstMatchOnly) break projectPatterns;
               } catch {
                 // skip
               }

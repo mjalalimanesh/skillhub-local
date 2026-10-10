@@ -6,7 +6,7 @@
 
 
 Skills · Memories · Instructions · Plugins · MCP Servers
-_Claude Code · Codex · Cursor · OpenCode · Gemini CLI · Copilot · Windsurf · Cline and more_
+_Claude Code · Codex · Cursor · OpenCode · Pi · DeepSeek Harness · Gemini CLI · Copilot · Windsurf · Cline and more_
 
 Using Claude + Codex + Cursor? Your agent context is probably scattered across a dozen hidden folders. SkillHub Local puts all of it — skills, memories, instructions, plugins, and MCP servers — in one place you can actually see and manage.
 
@@ -47,16 +47,42 @@ Surf stale memories, duplicate skills, and instruction files spread across proje
 
 ## Features
 
-- **Agent detection** — auto-detects 16 agents (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot, Windsurf, Cline, Amp, Continue, Roo Code, Goose, Antigravity, Hermes, Zed, Warp), showing install status plus skill and plugin counts per agent
+- **Agent detection** — auto-detects 18 agents (Claude Code, Codex, OpenCode, Pi, DeepSeek Harness, Cursor, Gemini CLI, GitHub Copilot, Windsurf, Cline, Amp, Continue, Roo Code, Goose, Antigravity, Hermes, Zed, Warp), showing install status plus skill and plugin counts per agent
 - **Projects** — point SkillHub at your code folders (Settings → Project Directories); each subdirectory becomes a project showing its skills, AGENTS.md files, memories, and MCP servers in one view
 - **Skill management** — scan global **and** per-project skills (`.claude/skills`, `.agents/skills`, `.roo/skills`, … parsed from `SKILL.md`), install, remove, update, copy/symlink between agents, with per-agent install status and raw content editing
 - **Skill store** — browse and search the skills.sh registry, one-click install to all detected agents
-- **MCP servers** — scan server configs (JSON/JSONC/TOML) across 10 agents, live tool discovery, OAuth flow, and per-server header/env credential overrides
+- **MCP servers** — scan server configs (JSON/JSONC/TOML) across 11 agents, including newer Pi releases, live tool discovery, OAuth flow, and per-server header/env credential overrides
 - **Memories** — scan AI-learned context from Codex, Claude Code, Windsurf, Cline, and Gemini CLI; global and project-scoped, with inline editing and re-scan
 - **Instructions** — scan user-authored rules across 12+ agents and `AGENTS.md`, with YAML frontmatter badges, inline editing, and configurable project directories
 - **Plugins** — detect plugins in agent cache directories (Cursor, Codex), browse skills inside each plugin, and configure custom plugins via `skillhub.config.json`
 - **Dashboard** — stat cards, per-agent and per-project context breakdowns, and a real-time activity feed over WebSocket
 - **Settings** — default scope, install method (symlink/copy), theme, telemetry, and project directories with a native OS folder picker
+
+## Pi and DeepSeek Harness
+
+Both harnesses appear in the existing Agents, Skills, Matrix, Store, Projects, and Instructions views. Shared skill directories alone do not mark a harness as installed; its native home or a native project skill must exist.
+
+| Harness | Native global skills | Native project skills | Shared skills |
+| --- | --- | --- | --- |
+| Pi | `~/.pi/agent/skills` | `.pi/skills` | `~/.agents/skills`, project `.agents/skills` |
+| DeepSeek Harness | `~/.dsh/skills` | `.dsh/skills` | `~/.agents/skills`, project `.agents/skills` |
+
+- `PI_CODING_AGENT_DIR` overrides Pi's global agent root; `DSH_HOME` overrides DeepSeek's global root; `DSH_AGENTS_HOME` overrides DeepSeek's shared global agent root. Set these in the environment when starting SkillHub, just as when starting the harness.
+- Scanning follows directory symlinks/junctions and counts the same physical skill only once per agent and scope. Separate copies remain visible. As with other agents, project scanning covers configured project roots, not a running session's full ancestor/touched-file discovery.
+- Pi store installs use the upstream `skills` CLI's `pi` target (shared Agent Skills directories). DeepSeek store installs stage the download with the CLI's `universal` target, then copy into DeepSeek's native skill directory; no unsupported `deepseek-harness` CLI argument is sent. DeepSeek installs use durable copies even when symlink mode is selected, so temporary downloads can be safely cleaned up. Copy/symlink between agents continues to use native directories for both harnesses.
+- Pi global instructions are `AGENTS.md` with `CLAUDE.md` as a fallback in its global root, and the same fallback order applies to project roots. Newer Pi's `AGENTS.override.md` takes precedence when present. DeepSeek reads global `AGENTS.md` from its home, plus project `AGENTS.md`, `CLAUDE.md`, and their `.local.md` overlays.
+- Newer Pi releases have native MCP configs in their global root's `mcp.json` and project `.pi/mcp.json`. Legacy Pi versions use extensions instead. DeepSeek configures MCP through Cordis YAML plugin patches, which this scanner does **not** currently parse; it does not invent a DeepSeek `mcp.json` path.
+- Native DeepSeek copies are not tracked by the upstream CLI's update lock; their Update action is disabled. Reinstall after removing the native copy, or edit it directly. Updating another agent's shared copy does not update a separate DeepSeek native copy.
+- Pi extension/package management, DeepSeek bundled skills/Cordis plugin management, standalone flat Markdown skills, and harness-specific memory providers are not managed by this integration; skill management uses directory bundles containing `SKILL.md`.
+
+Focused regression checks (isolated temporary homes, mocked CLI downloads):
+
+```bash
+npm run build
+node scripts/test-harnesses.mjs
+```
+
+Conventions are based on [Pi's skills documentation](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/skills.md), [Pi's MCP documentation](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/mcp.md), and the installed DeepSeek Harness filesystem/instruction plugins.
 
 ## Setup details
 

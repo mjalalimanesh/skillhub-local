@@ -4,6 +4,7 @@ import { parse as parseToml } from "smol-toml";
 import { expandHome } from "./scanner.js";
 import { discoverProjects, type ProjectRoot } from "./projects.js";
 import { loadConfig } from "./plugins.js";
+import { getPiAgentDir } from "./paths.js";
 
 export interface McpServer {
   id: string;
@@ -52,6 +53,24 @@ function vscodeUserSettingsPaths(): string[] {
 const VSCODE_SETTINGS = vscodeUserSettingsPaths();
 
 const MCP_SOURCES: McpSource[] = [
+  // Native MCP is present in newer Pi releases; legacy Pi may have no such
+  // files. Only discover actual configs, never infer MCP capability by name.
+  {
+    agentId: "pi",
+    agentName: "Pi",
+    paths: [join(getPiAgentDir(), "mcp.json")],
+    format: "json",
+    keyPath: ["mcpServers"],
+    scope: "global",
+  },
+  {
+    agentId: "pi",
+    agentName: "Pi",
+    paths: [".pi/mcp.json"],
+    format: "json",
+    keyPath: ["mcpServers"],
+    scope: "project",
+  },
   {
     agentId: "claude-code",
     agentName: "Claude Code",

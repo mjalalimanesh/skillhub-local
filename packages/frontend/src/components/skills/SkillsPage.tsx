@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CopyToAgentsDialog } from "./CopyToAgentsDialog";
 import { Package, Trash2, RefreshCw, Copy, Puzzle, Layers, ChevronDown, ChevronRight, FolderOpen } from "lucide-react";
 import { useToastStore } from "@/components/ui/toaster";
+import type { Skill } from "@/lib/types";
 
 export default function SkillsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -62,11 +63,21 @@ export default function SkillsPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (skillName: string) =>
-      api.updateSkill({ skills: [skillName] }),
-    onSuccess: () => {
+    mutationFn: (skill: Skill) => {
+      if (skill.supportsUpdate === false) {
+        throw new Error("Native DeepSeek Harness skill updates are not supported by the skills CLI.");
+      }
+      return api.updateSkill({ skills: [skill.name] });
+    },
+    onSuccess: (_data, skill) => {
       queryClient.invalidateQueries({ queryKey: ["skills"] });
-      addToast({ type: "success", title: "Update complete" });
+      addToast({
+        type: "success",
+        title: "CLI update complete",
+        description: skills.some((s) => s.name === skill.name && s.supportsUpdate === false)
+          ? "Native DeepSeek Harness copies are not tracked by the skills CLI; this does not confirm they are up to date."
+          : undefined,
+      });
     },
     onError: (error: Error) => {
       addToast({ type: "error", title: "Update failed", description: error.message });
@@ -74,6 +85,7 @@ export default function SkillsPage() {
   });
 
   const skills = data?.skills || [];
+  const hasUnsupportedUpdates = skills.some((s) => s.supportsUpdate === false);
   const agents = agentData?.agents || [];
   const detectedAgents = agents.filter((a) => a.detected);
   const overlapGroups = overlapData?.groups || [];
@@ -129,6 +141,13 @@ export default function SkillsPage() {
         </Select>
       </div>
 
+      {hasUnsupportedUpdates && (
+        <p className="text-xs text-ink-dim">
+          Native DeepSeek Harness skill updates are unsupported because these copies are not tracked by the skills CLI.
+          {" "}Update actions apply only to CLI-tracked copies and do not confirm DeepSeek Harness copies are up to date.
+        </p>
+      )}
+
       {overlapGroups.length > 0 && (
         <OverlapsSection
           groups={overlapGroups}
@@ -174,6 +193,11 @@ export default function SkillsPage() {
                   <div className="text-xs text-ink-dim truncate">
                     {skill.description}
                   </div>
+                  {skill.supportsUpdate === false && (
+                    <div className="text-xs text-ink-dim">
+                      Native DeepSeek Harness update unsupported (not tracked by skills CLI)
+                    </div>
+                  )}
                 </div>
               </Link>
               <div className="flex items-center gap-3 ml-3 shrink-0">
@@ -210,12 +234,14 @@ export default function SkillsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    title="Update"
-                    disabled={updateMutation.isPending}
+                    title={skill.supportsUpdate === false
+                      ? "Native DeepSeek Harness skill updates are unsupported"
+                      : "Update CLI-tracked copies only"}
+                    disabled={updateMutation.isPending || skill.supportsUpdate === false}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      updateMutation.mutate(skill.name);
+                      updateMutation.mutate(skill);
                     }}
                   >
                     <RefreshCw
